@@ -387,7 +387,6 @@
 					{/if}
 				</p>
 			{/if}
-			<Scoreboard players={game.players} perPlayer={game.perPlayer} />
 			<section class="turn">
 				<p class="label">Aan de beurt:</p>
 				<p class="who" data-testid="aan-de-beurt">{upcoming?.name ?? ''}</p>
@@ -395,6 +394,7 @@
 					Laat soort opdracht zien
 				</button>
 			</section>
+			<Scoreboard players={game.players} perPlayer={game.perPlayer} />
 		{:else if game.stage === 'type' && game.current}
 			<section class="turn">
 				<p class="label">{currentPlayer}, jouw opdracht is:</p>
