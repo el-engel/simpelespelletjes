@@ -1,0 +1,30 @@
+# Netlify leest deze instellingen automatisch; in het Netlify-scherm hoef je niets in te vullen.
+[build]
+  command = "npm run build"
+  publish = "build"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+# Credits sparen: alleen de hoofdtak (main) wordt gebouwd en gepubliceerd.
+# Testlinks per pull request en per tak staan uit. Wil je ze toch? Haal de regels hieronder weg.
+[context.deploy-preview]
+  ignore = "exit 0"
+
+[context.branch-deploy]
+  ignore = "exit 0"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=()"
+    X-Frame-Options = "DENY"
+
+[[headers]]
+  for = "/beheer/*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"
+    Cache-Control = "no-store"
