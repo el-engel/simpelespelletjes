@@ -197,6 +197,18 @@ Gratis bij Resend: 3.000 mails per maand en 100 per dag. Er komt geen rekening, 
 
 **Spambeveiliging:** dezelfde onzichtbare botcheck als bij Start spel, een verborgen valstrikveld voor bots, een minimale invultijd, maximaal 1.000 tekens en hooguit 3 berichten per 10 minuten (10 per dag) per bezoeker.
 
+## Bijwerken: soort opdracht "Raden (ja of nee)" (als de app al online staat)
+
+De soort opdracht die eerst "Vragen beantwoorden" heette, heet nu **Raden (ja of nee)**: de speler ziet een woord, de anderen stellen om de beurt een ja/nee-vraag tot iemand het raadt. De naam staat in de database, dus die pas je één keer aan:
+
+1. Open je project in Supabase: https://supabase.com/dashboard/projects en klik op **simplegames**.
+2. Klik links op **SQL Editor** (het icoon met `>_`) en daarna op **+ New query**.
+3. Open https://github.com/el-engel/simpelespelletjes/blob/main/supabase/migrations/20261117000000_raden_ja_nee.sql en klik rechtsboven op het **kopieer-icoon** ("Copy raw file"). (Is de nieuwe versie nog niet samengevoegd, open dan het bestand via de link in de pull request.)
+4. Plak het in de SQL Editor en klik rechtsonder op **Run**. Je ziet "Success. No rows returned".
+5. Controleer in `/beheer` > **Categorieën en soorten** dat de soort nu **Raden (ja of nee)** heet, en in **Spellen en spelregels** dat de spelregel is aangepast. (Had je de spelregels zelf al veranderd, pas die regel dan daar met de hand aan.)
+
+Oude Excel-bestanden met "vragen beantwoorden" in de kolom soort opdracht blijven gewoon werken.
+
 ## Kosten en grenzen
 
 - **Netlify Free:** een vast maandelijks tegoed. Elke publicatie kost tegoed, daarom bouwt Netlify alleen de hoofdtak `main` (zie `netlify.toml`). Is het tegoed op, dan pauzeert de site tot de volgende maand; er komt geen rekening.

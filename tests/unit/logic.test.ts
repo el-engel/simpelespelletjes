@@ -14,6 +14,7 @@ import {
 	setAge,
 	setCanSkip,
 	startTurn,
+	swapQuestion,
 	winners,
 	type GameState
 } from '../../src/lib/games/raadspel/logic.ts';
@@ -148,4 +149,55 @@ test('vragen overslaan: per speler aan en uit, ook bij toevoegen', () => {
 	assert.equal(s.players[1].canSkip, true);
 	s = addPlayer(s, 'Oma', true);
 	assert.equal(s.players[2].canSkip, true);
+});
+
+test('opdrachtsoort wordt per beurt willekeurig gekozen, niet altijd de eerste', () => {
+	const question = q('x', 4, false, ['uitbeelden', 'vragen', 'tekenen']);
+	const all = ['uitbeelden', 'vragen', 'tekenen'];
+	const seen = new Set<string>();
+	for (const r of [0, 0.4, 0.8]) seen.add(pickTask(question, all, () => r));
+	assert.deepEqual([...seen].sort(), ['tekenen', 'uitbeelden', 'vragen']);
+});
+
+test('dezelfde soort komt niet vaker dan twee keer achter elkaar als het anders kan', () => {
+	const question = q('x', 4, false, ['uitbeelden', 'tekenen']);
+	const all = ['uitbeelden', 'tekenen'];
+	// rnd 0 kiest normaal de eerste soort; na twee keer uitbeelden moet het tekenen worden
+	assert.equal(pickTask(question, all, () => 0, ['uitbeelden']), 'uitbeelden');
+	assert.equal(pickTask(question, all, () => 0, ['uitbeelden', 'uitbeelden']), 'tekenen');
+	// heeft de vraag maar één soort, dan kan het niet anders
+	assert.equal(pickTask(q('y', 4, false, ['uitbeelden']), all, () => 0, ['uitbeelden', 'uitbeelden']), 'uitbeelden');
+});
+
+test('in een heel spel nooit drie keer dezelfde soort achter elkaar', () => {
+	let s = game(['A', 'B', 'C'], 10, 40);
+	const codes: string[] = [];
+	for (let i = 0; i < 30; i++) {
+		s = startTurn(s, () => 0); // "pech": zou anders steeds uitbeelden zijn
+		codes.push(s.current!.taskCode);
+		s = finishTurn(s, null);
+	}
+	for (let i = 2; i < codes.length; i++) assert.ok(!(codes[i] === codes[i - 1] && codes[i] === codes[i - 2]), codes.join(','));
+	assert.ok(codes.includes('tekenen') && codes.includes('uitbeelden'));
+});
+
+test('kan de eerste vraag alleen dezelfde soort, dan komt een vraag met een andere soort naar voren', () => {
+	let s = game(['A', 'B'], 5, 0);
+	s.queue = [q('a', 4, false, ['uitbeelden']), q('b', 4, false, ['uitbeelden']), q('c', 4, false, ['uitbeelden']), q('d', 4, false, ['tekenen'])];
+	s = finishTurn(startTurn(s), null);
+	s = finishTurn(startTurn(s), null);
+	s = startTurn(s);
+	assert.equal(s.current!.question.id, 'd');
+	assert.equal(s.current!.taskCode, 'tekenen');
+	assert.deepEqual(s.queue.map((x) => x.id), ['c']);
+});
+
+test('andere vraag kiezen telt niet als extra beurt in de reeks', () => {
+	let s = game(['A', 'B'], 5, 0);
+	s.queue = [q('a', 4, false, ['uitbeelden']), q('b', 4, false, ['tekenen']), q('c', 4, false, ['uitbeelden', 'tekenen'])];
+	s = finishTurn(startTurn(s), null); // uitbeelden
+	s = startTurn(s); // tekenen (b)
+	s = swapQuestion(s, () => 0); // vervangt b; reeks is dan alleen [uitbeelden] → uitbeelden mag
+	assert.equal(s.current!.taskCode, 'uitbeelden');
+	assert.deepEqual(s.recentTasks, ['uitbeelden', 'uitbeelden']);
 });

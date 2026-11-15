@@ -5,11 +5,11 @@ insert into public.games (slug, name, description, rules, id_prefix, minutes_per
 values (
   'raadspel',
   'Raadspel',
-  'Uitbeelden, tekenen, beschrijven of vragen beantwoorden. Wie raadt het eerst?',
+  'Uitbeelden, tekenen, beschrijven of raden met ja/nee-vragen. Wie raadt het eerst?',
   E'## Zo speel je het raadspel\n\n'
   'Jullie spelen samen op één telefoon of tablet die rondgaat.\n\n'
   '1. De app zegt wie er aan de beurt is. Die speler pakt de telefoon.\n'
-  '2. Tik op **Laat soort opdracht zien**. Je ziet of je moet **uitbeelden**, **tekenen**, **beschrijven** of een **vraag beantwoorden**. Die mag je aan de groep laten zien.\n'
+  '2. Tik op **Laat soort opdracht zien**. Je ziet of je moet **uitbeelden**, **tekenen**, **beschrijven** of **raden (ja of nee)**. Die mag je aan de groep laten zien.\n'
   '3. Tik op **Laat vraag zien**. Laat dit scherm aan niemand zien en leg de telefoon omgekeerd neer.\n'
   '4. Voer de opdracht uit. De anderen raden.\n'
   '5. Heeft iemand het goed? Tik op **Klaar!** en kies wie het geraden heeft. Die speler krijgt een punt.\n\n'
@@ -17,7 +17,7 @@ values (
   '- **Uitbeelden:** niet praten en geen geluiden maken.\n'
   '- **Tekenen:** geen letters of cijfers tekenen.\n'
   '- **Beschrijven:** het woord zelf niet noemen.\n'
-  '- **Vragen beantwoorden:** lees de vraag voor; wie het eerst het goede antwoord geeft, wint de beurt.\n\n'
+  '- **Raden (ja of nee):** de anderen stellen om de beurt een vraag die je alleen met ja of nee beantwoordt ("Ben je een dier?" "Ja."), net zo lang tot iemand het woord raadt.\n\n'
   'Wie aan het eind de meeste punten heeft, wint!',
   'RS',
   1,
@@ -29,7 +29,7 @@ insert into public.task_types (game_id, code, name, sort_order)
 select g.id, t.code, t.name, t.sort_order
 from public.games g,
   (values ('uitbeelden', 'Uitbeelden', 1),
-          ('vragen', 'Vragen beantwoorden', 2),
+          ('vragen', 'Raden (ja of nee)', 2),
           ('beschrijven', 'Beschrijven', 3),
           ('tekenen', 'Tekenen', 4)) as t(code, name, sort_order)
 where g.slug = 'raadspel'
@@ -79,14 +79,14 @@ with data(text, cats, types, age) as (
     ('Tandenborstel', '{"In huis"}', '{uitbeelden,tekenen}', 4),
     ('Sneeuwwitje', '{"Films, series en tv"}', '{uitbeelden,beschrijven}', 6),
     ('Superheld', '{"Films, series en tv"}', '{uitbeelden,tekenen}', 6),
-    ('Noem drie planeten (bijv. Aarde, Mars, Jupiter)', '{"Algemene kennis"}', '{vragen}', 8),
-    ('Hoeveel poten heeft een spin? (8)', '{"Algemene kennis",Dieren}', '{vragen}', 6),
-    ('Wat is de hoofdstad van Frankrijk? (Parijs)', '{"Algemene kennis"}', '{vragen}', 9),
-    ('Welke kleur krijg je als je blauw en geel mengt? (groen)', '{"Algemene kennis"}', '{vragen}', 5),
-    ('Hoeveel minuten zitten er in een uur? (60)', '{"Algemene kennis"}', '{vragen}', 7),
-    ('Welk dier geeft melk waar we kaas van maken? (de koe)', '{"Algemene kennis",Dieren}', '{vragen}', 5),
-    ('Noem vijf soorten fruit (bijv. appel, peer, banaan)', '{"Algemene kennis","Eten en drinken"}', '{vragen}', 5),
-    ('In welk land staat de Eiffeltoren? (Frankrijk)', '{"Algemene kennis"}', '{vragen}', 8),
+    ('Robot', '{"Algemene kennis"}', '{vragen,uitbeelden,tekenen}', 8),
+    ('Spin', '{"Algemene kennis",Dieren}', '{vragen,tekenen}', 6),
+    ('Eiffeltoren', '{"Algemene kennis"}', '{vragen,tekenen,beschrijven}', 9),
+    ('Zeilboot', '{"Algemene kennis"}', '{vragen,tekenen}', 5),
+    ('Klok', '{"Algemene kennis"}', '{vragen,tekenen,beschrijven}', 7),
+    ('Koe', '{"Algemene kennis",Dieren}', '{vragen,uitbeelden,tekenen}', 5),
+    ('Banaan', '{"Algemene kennis","Eten en drinken"}', '{vragen,tekenen,beschrijven}', 5),
+    ('Vulkaan', '{"Algemene kennis"}', '{vragen,tekenen,beschrijven}', 8),
     ('Vrijgezellenfeest', '{"Uitgaan en feesten 18+"}', '{uitbeelden,beschrijven}', 18),
     ('Kater na het stappen', '{"Uitgaan en feesten 18+"}', '{uitbeelden,beschrijven}', 18)
 ),
@@ -113,13 +113,9 @@ join (values
     ('Fiets', '{Voertuigen}'), ('Helikopter', '{Voertuigen}'), ('Brandweerauto', '{Voertuigen}'), ('Onderzeeër', '{Voertuigen}'),
     ('Stofzuiger', '{"In huis"}'), ('Wasmachine', '{"In huis"}'), ('Paraplu', '{"In huis"}'), ('Tandenborstel', '{"In huis"}'),
     ('Sneeuwwitje', '{"Sprookjes en fantasie","Films, series en tv"}'), ('Superheld', '{"Films, series en tv"}'),
-    ('Noem drie planeten (bijv. Aarde, Mars, Jupiter)', '{"Algemene kennis"}'), ('Hoeveel poten heeft een spin? (8)', '{"Algemene kennis",Dieren}'),
-    ('Wat is de hoofdstad van Frankrijk? (Parijs)', '{"Algemene kennis"}'),
-    ('Welke kleur krijg je als je blauw en geel mengt? (groen)', '{"Algemene kennis"}'),
-    ('Hoeveel minuten zitten er in een uur? (60)', '{"Algemene kennis"}'),
-    ('Welk dier geeft melk waar we kaas van maken? (de koe)', '{"Algemene kennis",Dieren}'),
-    ('Noem vijf soorten fruit (bijv. appel, peer, banaan)', '{"Algemene kennis","Eten en drinken"}'),
-    ('In welk land staat de Eiffeltoren? (Frankrijk)', '{"Algemene kennis"}'),
+    ('Robot', '{"Algemene kennis"}'), ('Spin', '{"Algemene kennis",Dieren}'), ('Eiffeltoren', '{"Algemene kennis"}'),
+    ('Zeilboot', '{"Algemene kennis"}'), ('Klok', '{"Algemene kennis"}'), ('Koe', '{"Algemene kennis",Dieren}'),
+    ('Banaan', '{"Algemene kennis","Eten en drinken"}'), ('Vulkaan', '{"Algemene kennis"}'),
     ('Vrijgezellenfeest', '{"Uitgaan en feesten 18+"}'), ('Kater na het stappen', '{"Uitgaan en feesten 18+"}')
   ) as m(text, cats) on m.text = q.text
 join public.categories c on c.game_id = g.id and c.name = any (m.cats::text[])
@@ -143,10 +139,8 @@ join (values
     ('Onderzeeër', '{tekenen,beschrijven}'), ('Stofzuiger', '{uitbeelden,tekenen}'), ('Wasmachine', '{uitbeelden,beschrijven}'),
     ('Paraplu', '{uitbeelden,tekenen}'), ('Tandenborstel', '{uitbeelden,tekenen}'),
     ('Sneeuwwitje', '{uitbeelden,beschrijven}'), ('Superheld', '{uitbeelden,tekenen}'),
-    ('Noem drie planeten (bijv. Aarde, Mars, Jupiter)', '{vragen}'), ('Hoeveel poten heeft een spin? (8)', '{vragen}'),
-    ('Wat is de hoofdstad van Frankrijk? (Parijs)', '{vragen}'), ('Welke kleur krijg je als je blauw en geel mengt? (groen)', '{vragen}'),
-    ('Hoeveel minuten zitten er in een uur? (60)', '{vragen}'), ('Welk dier geeft melk waar we kaas van maken? (de koe)', '{vragen}'),
-    ('Noem vijf soorten fruit (bijv. appel, peer, banaan)', '{vragen}'), ('In welk land staat de Eiffeltoren? (Frankrijk)', '{vragen}'),
+    ('Robot', '{vragen,uitbeelden,tekenen}'), ('Spin', '{vragen,tekenen}'), ('Eiffeltoren', '{vragen,tekenen,beschrijven}'), ('Zeilboot', '{vragen,tekenen}'),
+    ('Klok', '{vragen,tekenen,beschrijven}'), ('Koe', '{vragen,uitbeelden,tekenen}'), ('Banaan', '{vragen,tekenen,beschrijven}'), ('Vulkaan', '{vragen,tekenen,beschrijven}'),
     ('Vrijgezellenfeest', '{uitbeelden,beschrijven}'), ('Kater na het stappen', '{uitbeelden,beschrijven}')
   ) as m(text, types) on m.text = q.text
 join public.task_types t on t.game_id = g.id and t.code = any (m.types::text[])

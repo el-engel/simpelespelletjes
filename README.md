@@ -1,6 +1,6 @@
 # Simpele spelletjes
 
-Webapp voor simpele spelletjes om samen op één telefoon te spelen. Het eerste spel is **het raadspel**: uitbeelden, tekenen, beschrijven of vragen beantwoorden, met score en winnaar.
+Webapp voor simpele spelletjes om samen op één telefoon te spelen. Het eerste spel is **het raadspel**: uitbeelden, tekenen, beschrijven of raden met ja/nee-vragen, met score en winnaar.
 
 - **Online zetten:** volg [SETUP.md](SETUP.md), stap voor stap en zonder programmeerkennis.
 - **Beheer:** `/beheer`, met inloggen plus 2FA (authenticator-app). Hier beheer je vragen (upload, zoeken, filteren, bewerken, (de)activeren, export), categorieën, soorten opdrachten en spelregels.

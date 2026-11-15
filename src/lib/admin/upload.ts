@@ -34,6 +34,14 @@ export const normalizeHeader = (h: unknown) =>
 		.toLowerCase()
 		.replace(/[^a-z0-9-]/g, '');
 
+/**
+ * Oude of andere namen voor een soort opdracht (per code). Zo blijven oude Excel-bestanden werken
+ * als een soort in het beheer een nieuwe naam krijgt.
+ */
+export const TASK_ALIASES: Record<string, string[]> = {
+	vragen: ['vragen beantwoorden', 'vragen stellen', 'vraag', 'quizvraag', 'quizvragen', 'quiz', 'raden', 'raden (ja of nee)', 'ja of nee', 'ja/nee']
+};
+
 const splitList = (v: unknown) =>
 	String(v ?? '')
 		.split(';')
@@ -74,6 +82,13 @@ export function buildPreview(table: unknown[][], known: Known): { rows: PreviewR
 
 	const catLower = new Map(known.categories.map((c) => [c.toLowerCase(), c]));
 	const ttLower = new Set(known.taskTypes.flatMap((t) => [t.code.toLowerCase(), t.name.toLowerCase()]));
+	const codes = new Set(known.taskTypes.map((t) => t.code.toLowerCase()));
+	// Een oude naam die nu niet meer bestaat, wordt vertaald naar de code van die soort.
+	const alias = (t: string) => {
+		if (ttLower.has(t)) return t;
+		const code = Object.keys(TASK_ALIASES).find((c) => codes.has(c) && TASK_ALIASES[c].includes(t));
+		return code ?? t;
+	};
 	const seen = new Set<string>();
 	const rows: PreviewRow[] = [];
 
@@ -82,7 +97,7 @@ export function buildPreview(table: unknown[][], known: Known): { rows: PreviewR
 		const id = cell(get('id')) || null;
 		const text = cell(get('text'));
 		const categories = splitList(get('categories'));
-		const taskTypes = splitList(get('taskTypes')).map((t) => t.toLowerCase());
+		const taskTypes = [...new Set(splitList(get('taskTypes')).map((t) => alias(t.toLowerCase())))];
 		const minAge = cell(get('minAge'));
 		if (!id && !text && categories.length === 0 && taskTypes.length === 0 && !minAge) return; // lege rij
 

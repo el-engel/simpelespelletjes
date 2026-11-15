@@ -152,7 +152,7 @@
 			{filtered.length} vragen · {totalReports} meldingen in deze periode
 		</p>
 		<div class="tablewrap">
-			<table>
+			<table class="stacked">
 				<thead>
 					<tr>
 						<th>ID</th>
@@ -167,9 +167,9 @@
 				<tbody>
 					{#each visible as q (q.id)}
 						{@const h = hint(q)}
-						<tr class:inactive={!q.active}>
-							<td class="mono">{q.public_id}</td>
-							<td>
+						<tr class="frow" class:inactive={!q.active}>
+							<td class="mono id">{q.public_id}</td>
+							<td class="q">
 								<button class="linkish" onclick={() => (openId = openId === q.id ? null : q.id)} aria-expanded={openId === q.id}>
 									{q.text}
 								</button>
@@ -178,19 +178,19 @@
 								</div>
 								{#if h}<div class="hint">{h}</div>{/if}
 							</td>
-							<td class="num">{q.plays}</td>
-							<td class="num">
+							<td class="num n1" data-label="Gespeeld">{q.plays}</td>
+							<td class="num n2" data-label="Gemeld">
 								<strong>{q.reports}</strong>
 								<div class="small muted">{fmtPct(pct(q.reports, q.plays))}</div>
 							</td>
-							<td class="reasons">
+							<td class="reasons" data-label="Waarom">
 								{#if q.te_moeilijk}<span class="badge">🧩 te moeilijk {q.te_moeilijk}</span>{/if}
 								{#if q.leeftijd}<span class="badge">🚫 leeftijd {q.leeftijd}</span>{/if}
 								{#if q.niet_leuk}<span class="badge">😐 niet leuk {q.niet_leuk}</span>{/if}
 								{#if q.prima}<span class="badge badge-on">👍 prima {q.prima}</span>{/if}
 								{#if q.dismissed}<span class="small muted">{q.dismissed} genegeerd</span>{/if}
 							</td>
-							<td class="num">{fmtPct(guessRate(q))}<div class="small muted">{q.swapped}× overgeslagen</div></td>
+							<td class="num n3" data-label="Geraden">{fmtPct(guessRate(q))}<div class="small muted">{q.swapped}× overgeslagen</div></td>
 							<td class="actions">
 								<div class="row age">
 									<label class="sr-only" for="age-{q.id}">Minimumleeftijd {q.public_id}</label>
@@ -211,6 +211,7 @@
 							<tr class="detail">
 								<td></td>
 								<td colspan="6">
+									<div class="agewrap">
 									<table class="ages">
 										<thead>
 											<tr><th>Leeftijd jongste</th><th class="num">Gespeeld</th><th class="num">Geraden</th><th class="num">Overgeslagen</th><th class="num">Meldingen</th></tr>
@@ -228,6 +229,7 @@
 											{/each}
 										</tbody>
 									</table>
+									</div>
 								</td>
 							</tr>
 						{/if}
@@ -256,6 +258,7 @@
 		justify-content: flex-end;
 	}
 	.tablewrap {
+		position: relative;
 		overflow-x: auto;
 		background: var(--surface);
 		border-radius: var(--radius);
@@ -334,5 +337,85 @@
 	}
 	.pager {
 		justify-content: center;
+	}
+	.agewrap {
+		overflow-x: auto;
+	}
+
+	/* Telefoon: elke vraag als kaartje met de cijfers naast elkaar. */
+	@media (max-width: 700px) {
+		table.stacked {
+			font-size: 1rem;
+		}
+		tr.frow {
+			display: grid;
+			grid-template-columns: repeat(3, 1fr);
+			grid-template-areas:
+				'id id id'
+				'q q q'
+				'n1 n2 n3'
+				'r r r'
+				'a a a';
+			column-gap: 10px;
+		}
+		tr.frow > td {
+			width: auto;
+		}
+		tr.frow > .id {
+			grid-area: id;
+			font-size: 0.85rem;
+			color: var(--muted);
+		}
+		tr.frow > .q {
+			grid-area: q;
+			font-size: 1.1rem;
+		}
+		tr.frow > .n1 {
+			grid-area: n1;
+		}
+		tr.frow > .n2 {
+			grid-area: n2;
+		}
+		tr.frow > .n3 {
+			grid-area: n3;
+		}
+		tr.frow > .reasons {
+			grid-area: r;
+			min-width: 0;
+		}
+		tr.frow > .reasons::before {
+			width: 100%;
+		}
+		tr.frow > .actions {
+			grid-area: a;
+			min-width: 0;
+			padding-top: 8px;
+		}
+		.actions .btn {
+			min-height: 44px;
+			flex: 1;
+		}
+		.age input {
+			flex: 0 0 80px;
+		}
+		tr.detail > td:first-child {
+			display: none;
+		}
+		tr.detail > td {
+			padding: 8px 12px;
+		}
+		tr.frow > .num {
+			text-align: left;
+		}
+		.ages {
+			font-size: 0.85rem;
+		}
+		.ages th {
+			white-space: normal;
+		}
+		.ages th,
+		.ages td {
+			padding: 6px 4px;
+		}
 	}
 </style>

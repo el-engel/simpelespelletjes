@@ -47,7 +47,12 @@ export interface GameState {
 	playedRepeats?: boolean;
 	/** Vragen die in dit spel al feedback kregen (maximaal één keer per vraag). */
 	feedbackGiven?: string[];
+	/** Opdrachtsoorten van de laatste beurten (nieuwste achteraan), om herhaling te beperken. */
+	recentTasks?: string[];
 }
+
+/** Hoe vaak dezelfde opdrachtsoort maximaal achter elkaar mag komen (als het anders kan). */
+export const MAX_SAME_TASK = 2;
 
 export interface TimerSettings {
 	on: boolean;
@@ -137,12 +142,45 @@ export function filterQueue(queue: DrawnQuestion[], age: number): DrawnQuestion[
 	return queue.filter((q) => allowedForAge(q, age));
 }
 
-/** Kiest een van de toegestane opdrachtsoorten van deze vraag. */
-export function pickTask(q: DrawnQuestion, taskCodes: string[], rnd = Math.random): string {
+/** De soorten die deze vraag in dit spel kan krijgen (alleen die aan staan). */
+export function taskOptions(q: DrawnQuestion, taskCodes: string[]): string[] {
 	const options = q.taskCodes.filter((c) => taskCodes.includes(c));
-	const list = options.length ? options : q.taskCodes;
-	return list[Math.floor(rnd() * list.length)] ?? '';
+	return options.length ? options : q.taskCodes;
 }
+
+/** De soort die al MAX_SAME_TASK keer achter elkaar kwam, of null. */
+export function blockedTask(recent: string[] = []): string | null {
+	const last = recent.slice(-MAX_SAME_TASK);
+	return last.length === MAX_SAME_TASK && last.every((c) => c === last[0]) ? last[0] : null;
+}
+
+/**
+ * Kiest willekeurig één van de toegestane opdrachtsoorten van deze vraag.
+ * Kwam dezelfde soort al twee keer achter elkaar, dan wordt die overgeslagen als de vraag een andere soort heeft.
+ */
+export function pickTask(q: DrawnQuestion, taskCodes: string[], rnd = Math.random, recent: string[] = []): string {
+	const list = taskOptions(q, taskCodes);
+	const blocked = blockedTask(recent);
+	const fresh = blocked ? list.filter((c) => c !== blocked) : list;
+	const pool = fresh.length ? fresh : list;
+	return pool[Math.floor(rnd() * pool.length)] ?? '';
+}
+
+/**
+ * Pakt de eerste vraag uit de wachtrij. Zou die vraag alleen de soort kunnen krijgen die al twee keer
+ * achter elkaar kwam, dan nemen we de eerste vraag verderop die wél een andere soort heeft.
+ */
+function takeQuestion(queue: DrawnQuestion[], taskCodes: string[], recent: string[] = []) {
+	const blocked = blockedTask(recent);
+	let i = 0;
+	if (blocked) {
+		const better = queue.findIndex((q) => taskOptions(q, taskCodes).some((c) => c !== blocked));
+		if (better > 0) i = better;
+	}
+	return { question: queue[i], rest: [...queue.slice(0, i), ...queue.slice(i + 1)] };
+}
+
+const remember = (recent: string[] = [], code: string) => [...recent, code].slice(-MAX_SAME_TASK);
 
 /** Hoogste score; bij gelijkspel meerdere winnaars. Niemand gescoord = geen winnaar. */
 export function winners(players: Player[]): Player[] {
@@ -156,14 +194,16 @@ export function startTurn(s: GameState, rnd = Math.random): GameState {
 	const idx = nextPlayerIndex(s);
 	if (idx === null) return { ...s, stage: 'end', current: null, endReason: 'done' };
 	const queue = filterQueue(s.queue, s.age);
-	const question = queue[0];
+	const { question, rest } = takeQuestion(queue, s.taskCodes, s.recentTasks);
 	if (!question) return { ...s, queue, stage: 'end', current: null, endReason: 'out' };
+	const taskCode = pickTask(question, s.taskCodes, rnd, s.recentTasks);
 	return {
 		...s,
-		queue: queue.slice(1),
+		queue: rest,
 		used: [...s.used, question.id],
 		lastIndex: idx,
-		current: { playerId: s.players[idx].id, question, taskCode: pickTask(question, s.taskCodes, rnd) },
+		current: { playerId: s.players[idx].id, question, taskCode },
+		recentTasks: remember(s.recentTasks, taskCode),
 		stage: 'type'
 	};
 }
@@ -172,13 +212,17 @@ export function startTurn(s: GameState, rnd = Math.random): GameState {
 export function swapQuestion(s: GameState, rnd = Math.random): GameState {
 	if (!s.current) return s;
 	const queue = filterQueue(s.queue, s.age);
-	const question = queue[0];
+	// De overgeslagen vraag telt niet mee voor de reeks: kijk naar de beurten daarvóór.
+	const before = (s.recentTasks ?? []).slice(0, -1);
+	const { question, rest } = takeQuestion(queue, s.taskCodes, before);
 	if (!question) return s;
+	const taskCode = pickTask(question, s.taskCodes, rnd, before);
 	return {
 		...s,
-		queue: queue.slice(1),
+		queue: rest,
 		used: [...s.used, question.id],
-		current: { ...s.current, question, taskCode: pickTask(question, s.taskCodes, rnd) },
+		current: { ...s.current, question, taskCode },
+		recentTasks: remember(before, taskCode),
 		stage: 'type'
 	};
 }
@@ -218,7 +262,8 @@ export function playAgain(s: GameState): GameState {
 		current: null,
 		lastIndex: -1,
 		lastGuess: null,
-		endReason: null
+		endReason: null,
+		recentTasks: []
 	};
 }
 
