@@ -19,10 +19,7 @@ test('hele spel: uitleg, invoer, beurten, score en winnaar', async ({ page }) =>
 	await expect(page.getByRole('checkbox', { name: /^18\+/ })).toBeDisabled();
 	await expect(page.getByRole('checkbox', { name: /^18\+/ })).not.toBeChecked();
 
-	// "Ik ben klaar" past het aantal spelers aan (speler 3 was leeg)
-	await page.getByRole('button', { name: 'Ik ben klaar, dit zijn alle spelers' }).click();
-	await expect(page.getByLabel('Hoeveel spelers?')).toHaveValue('2');
-	await expect(page.getByTestId('duur')).toHaveText('Spel duurt ongeveer 4 minuten');
+	// Een leeg naamveld (speler 3) telt niet mee.
 
 	await page.getByRole('button', { name: 'Start spel' }).click();
 
@@ -207,4 +204,41 @@ test('vragen overslaan alleen voor spelers met het vinkje', async ({ page }) => 
 	await page.getByRole('button', { name: 'Menu' }).click();
 	await page.getByRole('group', { name: 'Wie mag vragen overslaan?' }).getByRole('checkbox', { name: 'Papa' }).check();
 	await expect(page.getByRole('button', { name: 'Overslaan, andere vraag' })).toBeVisible();
+});
+
+test('al gespeelde vragen: eerst nieuwe, anders kiezen om toch te spelen', async ({ page }) => {
+	// Alle 18 demovragen zijn op deze telefoon al eens gespeeld.
+	await page.goto('/');
+	await page.evaluate(() => {
+		const ids = Array.from({ length: 18 }, (_, i) => `00000000-0000-4000-8000-${String(i + 1).padStart(12, '0')}`);
+		localStorage.setItem('spel:raadspel:gespeeld', JSON.stringify(ids));
+	});
+	await page.goto('/spel/raadspel');
+	await page.getByRole('button', { name: 'Gelezen' }).click();
+	await page.getByLabel('Hoeveel spelers?').fill('2');
+	await page.getByLabel('Leeftijd jongste speler?').fill('30');
+	await page.getByLabel('Speler 1').fill('Ann');
+	await page.getByLabel('Speler 2').fill('Bob');
+	await page.getByRole('button', { name: 'Start spel' }).click();
+	await expect(page.getByRole('heading', { name: 'Alles al gespeeld?' })).toBeVisible();
+	await expect(page.getByTestId('aan-de-beurt')).toHaveCount(0);
+	await page.getByRole('button', { name: 'Toch spelen, ook met vragen die al geweest zijn' }).click();
+	await expect(page.getByTestId('aan-de-beurt')).toHaveText('Ann');
+});
+
+test('gespeelde vragen worden onthouden voor het volgende spel', async ({ page }) => {
+	await page.goto('/spel/raadspel');
+	await page.getByRole('button', { name: 'Gelezen' }).click();
+	await page.getByLabel('Hoeveel spelers?').fill('2');
+	await page.getByLabel('Hoeveel vragen per speler?').fill('1');
+	await page.getByLabel('Leeftijd jongste speler?').fill('30');
+	await page.getByLabel('Speler 1').fill('Ann');
+	await page.getByLabel('Speler 2').fill('Bob');
+	await page.getByRole('button', { name: 'Start spel' }).click();
+	await page.getByRole('button', { name: 'Laat soort opdracht zien' }).click();
+	await page.getByRole('button', { name: 'Laat vraag zien' }).click();
+	const vraag = await page.getByTestId('vraag').textContent();
+	const seen = await page.evaluate(() => JSON.parse(localStorage.getItem('spel:raadspel:gespeeld') ?? '[]'));
+	expect(seen.length).toBe(1);
+	expect(vraag).toBeTruthy();
 });

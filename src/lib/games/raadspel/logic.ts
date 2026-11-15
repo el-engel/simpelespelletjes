@@ -34,6 +34,8 @@ export interface GameState {
 	/** Wie de vorige beurt raadde, om kort te tonen. */
 	lastGuess: { by: string | null; playerId: string } | null;
 	endReason: 'done' | 'out' | 'stopped' | null;
+	/** Mogen vragen terugkomen die op deze telefoon al eens gespeeld zijn? */
+	allowRepeats?: boolean;
 }
 
 export const MAX_PLAYERS = 20;

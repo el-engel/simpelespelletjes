@@ -18,7 +18,7 @@ export const POST: RequestHandler = async (event) => {
 		taskCodes: strArray(body.taskCodes, 20, 30),
 		categoryIds: strArray(body.categoryIds, 200),
 		count: intIn(body.count, 1, 200),
-		exclude: strArray(body.exclude ?? [], 2000)
+		exclude: strArray(body.exclude ?? [], 3000)
 	});
 	return json({ questions }, { headers: { 'cache-control': 'no-store' } });
 };
