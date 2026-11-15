@@ -6,6 +6,8 @@ export interface Player {
 	name: string;
 	score: number;
 	turns: number;
+	/** Mag deze speler een vraag overslaan (handig voor kinderen)? */
+	canSkip?: boolean;
 }
 
 export interface CurrentTurn {
@@ -58,8 +60,8 @@ export function newState(): GameState {
 let counter = 0;
 export const makeId = () => `p${Date.now().toString(36)}${(counter++).toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
-export function makePlayer(name: string): Player {
-	return { id: makeId(), name: name.trim().slice(0, 30), score: 0, turns: 0 };
+export function makePlayer(name: string, canSkip = false): Player {
+	return { id: makeId(), name: name.trim().slice(0, 30), score: 0, turns: 0, canSkip };
 }
 
 /** "Spel duurt ongeveer X minuten". */
@@ -155,9 +157,9 @@ export function finishTurn(s: GameState, guessedBy: string | null): GameState {
 	return nextPlayerIndex(after) === null ? { ...after, stage: 'end', endReason: 'done' } : after;
 }
 
-export function addPlayer(s: GameState, name: string): GameState {
+export function addPlayer(s: GameState, name: string, canSkip = false): GameState {
 	if (!name.trim() || s.players.length >= MAX_PLAYERS) return s;
-	const players = [...s.players, makePlayer(name)];
+	const players = [...s.players, makePlayer(name, canSkip)];
 	const reopened = s.stage === 'end' && s.endReason === 'done';
 	return { ...s, players, stage: reopened ? 'turn' : s.stage, endReason: reopened ? null : s.endReason };
 }
@@ -178,4 +180,9 @@ export function playAgain(s: GameState): GameState {
 		lastGuess: null,
 		endReason: null
 	};
+}
+
+/** Zet "mag vragen overslaan" aan of uit voor één speler. */
+export function setCanSkip(s: GameState, playerId: string, canSkip: boolean): GameState {
+	return { ...s, players: s.players.map((p) => (p.id === playerId ? { ...p, canSkip } : p)) };
 }

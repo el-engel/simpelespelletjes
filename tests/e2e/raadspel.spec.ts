@@ -130,3 +130,81 @@ test('elk nieuw scherm opent bovenaan', async ({ page }) => {
 	await expect(page.getByTestId('aan-de-beurt')).toBeVisible();
 	await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
 });
+
+async function startTwoPlayers(page: import('@playwright/test').Page) {
+	await page.goto('/');
+	await page.getByRole('link', { name: /Raadspel/ }).click();
+	await page.getByRole('button', { name: 'Gelezen' }).click();
+	await page.getByLabel('Hoeveel spelers?').fill('2');
+	await page.getByLabel('Leeftijd jongste speler?').fill('30');
+	await page.getByLabel('Speler 1').fill('Ann');
+	await page.getByLabel('Speler 2').fill('Bob');
+	await page.getByRole('button', { name: 'Start spel' }).click();
+	await expect(page.getByTestId('aan-de-beurt')).toHaveText('Ann');
+}
+
+test('via het menu stoppen en terug naar het hoofdmenu', async ({ page }) => {
+	await startTwoPlayers(page);
+	await page.getByRole('button', { name: 'Menu' }).click();
+	await page.getByRole('button', { name: 'Stoppen en naar het hoofdmenu' }).click();
+	await page.getByRole('button', { name: 'Nee, verder spelen' }).click();
+	await expect(page.getByTestId('aan-de-beurt')).toHaveText('Ann');
+	await page.getByRole('button', { name: 'Stoppen en naar het hoofdmenu' }).click();
+	await page.getByRole('button', { name: 'Ja, stoppen' }).click();
+	await expect(page).toHaveURL(/\/$/);
+	// Een nieuw spel begint echt opnieuw, bij de uitleg.
+	await page.getByRole('link', { name: /Raadspel/ }).click();
+	await expect(page.getByRole('button', { name: 'Gelezen' })).toBeVisible();
+	await page.getByRole('button', { name: 'Gelezen' }).click();
+	await expect(page.getByLabel('Hoeveel spelers?')).toHaveValue('');
+});
+
+test('terug in de browser: kiezen tussen verder spelen en nieuw spel', async ({ page }) => {
+	await startTwoPlayers(page);
+	await page.goBack();
+	await expect(page).toHaveURL(/\/$/);
+	await page.getByRole('link', { name: /Raadspel/ }).click();
+	await expect(page.getByRole('heading', { name: 'Je was nog bezig' })).toBeVisible();
+	await page.getByRole('button', { name: 'Verder spelen' }).click();
+	await expect(page.getByTestId('aan-de-beurt')).toHaveText('Ann');
+
+	await page.goBack();
+	await page.getByRole('link', { name: /Raadspel/ }).click();
+	await page.getByRole('button', { name: 'Nieuw spel' }).click();
+	await expect(page.getByLabel('Hoeveel spelers?')).toBeVisible();
+	await expect(page.getByTestId('aan-de-beurt')).toHaveCount(0);
+});
+
+test('vragen overslaan alleen voor spelers met het vinkje', async ({ page }) => {
+	await page.goto('/spel/raadspel');
+	await page.getByRole('button', { name: 'Gelezen' }).click();
+	await page.getByLabel('Hoeveel spelers?').fill('2');
+	await page.getByLabel('Leeftijd jongste speler?').fill('6');
+	await page.getByLabel('Speler 1').fill('Kim');
+	await page.getByLabel('Speler 2').fill('Papa');
+	await page.getByRole('checkbox', { name: 'Mag vragen overslaan' }).first().check();
+	await page.getByRole('button', { name: 'Start spel' }).click();
+
+	// Kim mag overslaan
+	await expect(page.getByTestId('aan-de-beurt')).toHaveText('Kim');
+	await page.getByRole('button', { name: 'Laat soort opdracht zien' }).click();
+	await page.getByRole('button', { name: 'Laat vraag zien' }).click();
+	const eerste = await page.getByTestId('vraag').textContent();
+	await page.getByRole('button', { name: 'Overslaan, andere vraag' }).click();
+	// Nieuwe vraag: eerst opnieuw de soort opdracht, dan de vraag.
+	await page.getByRole('button', { name: 'Laat vraag zien' }).click();
+	await expect(page.getByTestId('vraag')).not.toHaveText(eerste ?? '');
+	await page.getByRole('button', { name: 'Klaar!' }).click();
+	await page.getByRole('button', { name: 'Papa', exact: true }).click();
+
+	// Papa niet
+	await expect(page.getByTestId('aan-de-beurt')).toHaveText('Papa');
+	await page.getByRole('button', { name: 'Laat soort opdracht zien' }).click();
+	await page.getByRole('button', { name: 'Laat vraag zien' }).click();
+	await expect(page.getByRole('button', { name: 'Overslaan, andere vraag' })).toHaveCount(0);
+
+	// In het menu kun je het alsnog aanzetten
+	await page.getByRole('button', { name: 'Menu' }).click();
+	await page.getByRole('group', { name: 'Wie mag vragen overslaan?' }).getByRole('checkbox', { name: 'Papa' }).check();
+	await expect(page.getByRole('button', { name: 'Overslaan, andere vraag' })).toBeVisible();
+});

@@ -1,3 +1,8 @@
+<script lang="ts" module>
+	/** Blijft bestaan zolang de pagina niet ververst wordt (navigeren binnen de app). */
+	let mountedBefore = false;
+</script>
+
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import type { GameProps } from '../registry';
@@ -15,6 +20,7 @@
 		playAgain,
 		remainingTurns,
 		setAge,
+		setCanSkip,
 		startTurn,
 		swapQuestion,
 		winners,
@@ -29,10 +35,14 @@
 	let loading = $state(false);
 	let message = $state('');
 	let menuOpen = $state(false);
+	let confirmQuit = $state(false);
+	/** Er stond nog een spel klaar toen je terugkwam: eerst kiezen of je verder speelt. */
+	let resumeAsk = $state(false);
 
 	// ---- invoerscherm
 	let playerCount = $state<number | null>(null);
 	let names = $state<string[]>([]);
+	let skips = $state<boolean[]>([]);
 	let perPlayer = $state<number | null>(3);
 	let age = $state<number | null>(null);
 	let taskCodes = $state<string[]>([]);
@@ -40,6 +50,7 @@
 
 	// ---- menu tijdens het spel
 	let newPlayerName = $state('');
+	let newPlayerSkip = $state(false);
 	let newAge = $state<number | null>(null);
 
 	const taskName = (code: string) => start.taskTypes.find((t) => t.code === code)?.name ?? code;
@@ -60,13 +71,18 @@
 	});
 
 	onMount(() => {
+		const reloadHere = isReloadHere();
 		taskCodes = start.taskTypes.map((t) => t.code);
 		categoryIds = start.categories.filter((c) => !c.is18plus).map((c) => c.id);
 		try {
 			const raw = sessionStorage.getItem(storageKey);
 			if (raw) {
 				const saved = JSON.parse(raw) as GameState;
-				if (saved?.version === 1) game = saved;
+				if (saved?.version === 1) {
+					game = saved;
+					const busy = saved.stage !== 'setup' && saved.stage !== 'end';
+					if (busy && !reloadHere) resumeAsk = true;
+				}
 			}
 		} catch {
 			/* negeren */
@@ -97,15 +113,46 @@
 		}
 	});
 
+	/** Alleen bij verversen van precies deze pagina speel je zonder vragen verder. */
+	function isReloadHere() {
+		if (mountedBefore) return false;
+		mountedBefore = true;
+		try {
+			const nav = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined;
+			return nav?.type === 'reload' && new URL(nav.name).pathname === location.pathname;
+		} catch {
+			return false;
+		}
+	}
+
+	function resume() {
+		resumeAsk = false;
+		toTop();
+	}
+
+	function freshGame() {
+		resumeAsk = false;
+		newGame();
+	}
+
+	function quitToMenu() {
+		menuOpen = false;
+		confirmQuit = false;
+		exit();
+	}
+
 	function setPlayerCount(n: number | null) {
 		playerCount = n;
 		if (n === null || !Number.isFinite(n)) return;
 		const count = Math.max(0, Math.min(MAX_PLAYERS, Math.floor(n)));
 		names = Array.from({ length: count }, (_, i) => names[i] ?? '');
+		skips = Array.from({ length: count }, (_, i) => skips[i] ?? false);
 	}
 
 	function doneWithPlayers() {
-		names = names.map((n) => n.trim()).filter(Boolean);
+		const keep = names.map((n, i) => ({ name: n.trim(), skip: skips[i] ?? false })).filter((p) => p.name);
+		names = keep.map((p) => p.name);
+		skips = keep.map((p) => p.skip);
 		playerCount = names.length;
 		message = names.length < 2 ? 'Vul minstens twee spelers in.' : '';
 	}
@@ -164,7 +211,7 @@
 		const s: GameState = {
 			...newState(),
 			stage: 'turn',
-			players: filled.map(makePlayer),
+			players: filled.map((n, i) => makePlayer(n, skips[i] ?? false)),
 			perPlayer,
 			age,
 			taskCodes: [...taskCodes],
@@ -215,8 +262,9 @@
 			message = 'Die naam bestaat al.';
 			return;
 		}
-		game = addPlayer(game, name);
+		game = addPlayer(game, name, newPlayerSkip);
 		newPlayerName = '';
+		newPlayerSkip = false;
 		message = `${name} doet mee.`;
 		await topUp();
 	}
@@ -244,10 +292,12 @@
 
 	function newGame() {
 		names = game.players.map((p) => p.name);
+		skips = game.players.map((p) => !!p.canSkip);
 		playerCount = names.length;
 		perPlayer = game.perPlayer;
 		age = game.age;
 		game = newState();
+		message = '';
 	}
 
 	function exit() {
@@ -265,7 +315,19 @@
 </script>
 
 <main class="container stack game">
-	{#if game.stage === 'setup'}
+	{#if resumeAsk}
+		<h1>{start.game.name}</h1>
+		<section class="card card-neon stack" aria-live="polite">
+			<h2>Je was nog bezig</h2>
+			<p>
+				Er loopt nog een spel met {game.players.map((p) => p.name).join(', ')}. Wil je verder spelen of een
+				nieuw spel beginnen?
+			</p>
+			<button class="btn btn-primary btn-big" onclick={resume}>Verder spelen</button>
+			<button class="btn btn-big" onclick={freshGame}>Nieuw spel</button>
+			<button class="btn-link" onclick={exit}>Stoppen en naar het hoofdmenu</button>
+		</section>
+	{:else if game.stage === 'setup'}
 		<a class="btn-link" href="/">← Alle spelletjes</a>
 		<h1>{start.game.name}</h1>
 		<p class="kicker">Stel je spel in</p>
@@ -312,6 +374,10 @@
 							placeholder="Naam of initialen"
 							bind:value={names[i]}
 						/>
+						<label class="check small-check">
+							<input type="checkbox" bind:checked={skips[i]} />
+							Mag vragen overslaan
+						</label>
 					</div>
 				{/each}
 				<button class="btn" onclick={doneWithPlayers}>Ik ben klaar, dit zijn alle spelers</button>
@@ -358,7 +424,10 @@
 	{:else}
 		<div class="topbar">
 			<span class="muted small">{start.game.name}</span>
-			<button class="btn btn-small" onclick={() => (menuOpen = !menuOpen)} aria-expanded={menuOpen}>
+			<button class="btn btn-small" onclick={() => {
+					menuOpen = !menuOpen;
+					confirmQuit = false;
+				}} aria-expanded={menuOpen}>
 				{menuOpen ? 'Sluit menu' : 'Menu'}
 			</button>
 		</div>
@@ -371,7 +440,24 @@
 						<input id="nieuw" type="text" maxlength="30" placeholder="Naam of initialen" bind:value={newPlayerName} />
 						<button class="btn" onclick={addPlayerNow} disabled={!newPlayerName.trim()}>Toevoegen</button>
 					</div>
+					<label class="check small-check">
+						<input type="checkbox" bind:checked={newPlayerSkip} />
+						Mag vragen overslaan
+					</label>
 				</div>
+				<fieldset class="skipset">
+					<legend>Wie mag vragen overslaan?</legend>
+					{#each game.players as p (p.id)}
+						<label class="check small-check">
+							<input
+								type="checkbox"
+								checked={!!p.canSkip}
+								onchange={(e) => (game = setCanSkip(game, p.id, e.currentTarget.checked))}
+							/>
+							{p.name}
+						</label>
+					{/each}
+				</fieldset>
 				<div class="field">
 					<label for="nieuwe-leeftijd">Leeftijd jongste speler (nu {game.age})</label>
 					<div class="row">
@@ -379,7 +465,18 @@
 						<button class="btn" onclick={changeAge} disabled={!newAge}>Aanpassen</button>
 					</div>
 				</div>
-				<button class="btn" onclick={stopGame}>Spel stoppen</button>
+				<button class="btn" onclick={stopGame}>Spel afronden en uitslag tonen</button>
+				{#if confirmQuit}
+					<div class="quit stack" role="group" aria-label="Stoppen bevestigen">
+						<p>Weet je het zeker? Het spel en de punten worden gewist.</p>
+						<div class="row">
+							<button class="btn btn-red" onclick={quitToMenu}>Ja, stoppen</button>
+							<button class="btn" onclick={() => (confirmQuit = false)}>Nee, verder spelen</button>
+						</div>
+					</div>
+				{:else}
+					<button class="btn" onclick={() => (confirmQuit = true)}>Stoppen en naar het hoofdmenu</button>
+				{/if}
 			</section>
 		{/if}
 
@@ -417,7 +514,9 @@
 				<p class="question" data-testid="vraag">{game.current.question.text}</p>
 				<p class="muted small">Leg de telefoon omgekeerd neer en begin!</p>
 				<button class="btn btn-green btn-big" onclick={() => (game = { ...game, stage: 'guess' })}>Klaar!</button>
-				<button class="btn-link" onclick={otherQuestion} disabled={loading}>Andere vraag</button>
+				{#if game.players.find((p) => p.id === game.current?.playerId)?.canSkip}
+					<button class="btn btn-big skip" onclick={otherQuestion} disabled={loading}>Overslaan, andere vraag</button>
+				{/if}
 			</section>
 		{:else if game.stage === 'guess' && game.current}
 			<section class="card stack">
@@ -535,6 +634,33 @@
 		color: var(--text);
 		text-shadow: 0 0 16px rgb(92 242 255 / 0.8);
 		word-break: break-word;
+	}
+	.small-check {
+		font-weight: 500;
+		color: var(--muted);
+		min-height: 40px;
+	}
+	.skipset {
+		border: 2px solid var(--line);
+		border-radius: 14px;
+		padding: 8px 14px 4px;
+		margin: 0;
+	}
+	.skipset legend {
+		font-weight: 600;
+		padding: 0 6px;
+	}
+	.skip {
+		border-color: var(--yellow) !important;
+		color: var(--yellow);
+	}
+	.quit {
+		border: 2px solid var(--red);
+		border-radius: 14px;
+		padding: 14px;
+	}
+	.quit p {
+		margin: 0;
 	}
 	.guessers {
 		display: grid;
