@@ -9,7 +9,8 @@
 
 <main class="container stack">
 	<header class="hero">
-		<h1>Simpele spelletjes</h1>
+		<p class="ready">Player 1 ready</p>
+		<h1>Simple<br />games</h1>
 		<p class="muted">Kies een spel en speel samen op één telefoon of tablet.</p>
 	</header>
 
@@ -24,47 +25,91 @@
 					<a class="tile" href="/spel/{game.slug}">
 						<span class="tile-name">{game.name}</span>
 						{#if game.description}<span class="tile-desc">{game.description}</span>{/if}
+						<span class="tile-start" aria-hidden="true">Start</span>
 					</a>
 				</li>
 			{/each}
+			<li class="soon">Meer spellen komen eraan</li>
 		</ul>
 	{/if}
 </main>
 
 <style>
 	.hero {
-		padding: 24px 0 8px;
+		padding: 40px 0 8px;
 		text-align: center;
 	}
+	.ready {
+		margin: 0 0 8px;
+		font-weight: 700;
+		letter-spacing: 0.3em;
+		text-transform: uppercase;
+		color: var(--cyan);
+		font-size: 0.85rem;
+	}
 	.hero h1 {
-		font-size: 2rem;
+		font-size: clamp(2.6rem, 13vw, 3.4rem);
+		line-height: 1;
+		margin-bottom: 16px;
 	}
 	.games {
 		list-style: none;
 		padding: 0;
 		margin: 0;
 		display: grid;
-		gap: 12px;
+		gap: 16px;
 	}
 	.tile {
 		display: flex;
 		flex-direction: column;
-		gap: 4px;
-		padding: 22px 20px;
-		border-radius: 18px;
-		background: var(--brand);
-		color: #fff;
+		gap: 10px;
+		padding: 24px 22px;
+		border-radius: 20px;
+		background: var(--surface);
+		border: 2px solid var(--cyan);
+		box-shadow: var(--glow-cyan);
+		color: var(--text);
 		text-decoration: none;
-		box-shadow: var(--shadow);
+		transition: transform 0.1s ease;
 	}
 	.tile:hover {
-		background: var(--brand-dark);
+		transform: translateY(-2px);
+	}
+	.tile:active {
+		transform: scale(0.98);
 	}
 	.tile-name {
-		font-size: 1.5rem;
-		font-weight: 700;
+		font-family: var(--font-display);
+		font-size: 1.9rem;
+		color: var(--lime);
+		line-height: 1.1;
 	}
 	.tile-desc {
-		opacity: 0.95;
+		color: var(--muted);
+	}
+	.tile-start {
+		margin-top: 6px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		min-height: 56px;
+		border-radius: 14px;
+		background: var(--lime);
+		color: var(--on-neon);
+		font-family: var(--font-display);
+		font-size: 1.2rem;
+		text-transform: uppercase;
+		box-shadow: var(--glow-lime);
+	}
+	.soon {
+		border: 2px dashed var(--line);
+		border-radius: 20px;
+		padding: 18px;
+		text-align: center;
+		color: var(--muted);
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		font-size: 0.85rem;
+		font-weight: 700;
 	}
 </style>

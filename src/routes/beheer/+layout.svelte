@@ -107,7 +107,7 @@
 
 <style>
 	.adminbar {
-		background: #fff;
+		background: var(--surface);
 		border-bottom: 1px solid var(--line);
 		position: sticky;
 		top: 0;
@@ -125,7 +125,7 @@
 		color: var(--text);
 	}
 	nav a.active {
-		background: #ffedd5;
+		background: var(--surface-2);
 		color: var(--brand-dark);
 		font-weight: 600;
 	}

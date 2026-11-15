@@ -8,6 +8,7 @@
 </script>
 
 <section class="card" aria-label="Score">
+	<p class="title">Highscores</p>
 	<table>
 		<thead>
 			<tr>
@@ -18,9 +19,9 @@
 		</thead>
 		<tbody>
 			{#each sorted as p (p.id)}
-				<tr>
-					<td>{p.name}</td>
-					<td class="num"><strong>{p.score}</strong></td>
+				<tr class:top={p.score > 0 && p.score === sorted[0].score}>
+					<td class="name">{p.name}</td>
+					<td class="num score">{p.score}</td>
 					{#if showTurns}<td class="num muted">{p.turns}/{perPlayer}</td>{/if}
 				</tr>
 			{/each}
@@ -29,13 +30,21 @@
 </section>
 
 <style>
+	.title {
+		margin: 0 0 8px;
+		font-weight: 700;
+		letter-spacing: 0.25em;
+		text-transform: uppercase;
+		color: var(--muted);
+		font-size: 0.8rem;
+	}
 	table {
 		width: 100%;
 		border-collapse: collapse;
 	}
 	th,
 	td {
-		padding: 6px 4px;
+		padding: 8px 4px;
 		text-align: left;
 		border-bottom: 1px solid var(--line);
 	}
@@ -43,9 +52,22 @@
 		border-bottom: none;
 	}
 	th {
-		font-size: 0.85rem;
+		font-size: 0.8rem;
 		color: var(--muted);
 		font-weight: 600;
+	}
+	.name {
+		font-weight: 700;
+		font-size: 1.1rem;
+		word-break: break-word;
+	}
+	.score {
+		font-family: var(--font-display);
+		font-size: 1.3rem;
+	}
+	.top .score,
+	.top .name {
+		color: var(--yellow);
 	}
 	.num {
 		text-align: right;

@@ -466,7 +466,7 @@
 	}
 	.tablewrap {
 		overflow-x: auto;
-		background: #fff;
+		background: var(--surface);
 		border-radius: var(--radius);
 		box-shadow: var(--shadow);
 	}
@@ -483,7 +483,7 @@
 		vertical-align: top;
 	}
 	th {
-		background: #fafaf9;
+		background: var(--surface-2);
 		white-space: nowrap;
 	}
 	.sort {
@@ -516,7 +516,7 @@
 		color: var(--muted);
 	}
 	tr.editing td {
-		background: #fffbeb;
+		background: rgb(255 210 63 / 0.12);
 	}
 	.switch {
 		display: inline-flex;

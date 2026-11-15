@@ -110,3 +110,23 @@ test('API geeft onder 18 nooit 18+-vragen, ook niet als je erom vraagt', async (
 	expect(questions.length).toBeGreaterThan(0);
 	expect(questions.some((q: { adult: boolean; minAge: number }) => q.adult || q.minAge > 12)).toBe(false);
 });
+
+test('elk nieuw scherm opent bovenaan', async ({ page }) => {
+	await page.goto('/spel/raadspel');
+	await expect(page.getByRole('button', { name: 'Gelezen' })).toBeVisible();
+	// Naar beneden scrollen op de regels en dan "Gelezen": het invoerscherm moet bovenaan beginnen.
+	await page.getByRole('button', { name: 'Gelezen' }).scrollIntoViewIfNeeded();
+	await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+	await page.getByRole('button', { name: 'Gelezen' }).click();
+	await expect(page.getByLabel('Hoeveel spelers?')).toBeVisible();
+	await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+
+	// Ook na "Start spel" onderaan het lange invoerscherm.
+	await page.getByLabel('Hoeveel spelers?').fill('2');
+	await page.getByLabel('Leeftijd jongste speler?').fill('30');
+	await page.getByLabel('Speler 1').fill('Ann');
+	await page.getByLabel('Speler 2').fill('Bob');
+	await page.getByRole('button', { name: 'Start spel' }).click();
+	await expect(page.getByTestId('aan-de-beurt')).toBeVisible();
+	await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+});
