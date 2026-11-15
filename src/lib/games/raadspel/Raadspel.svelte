@@ -6,14 +6,26 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import type { GameProps } from '../registry';
-	import type { DrawnQuestion } from '#lib/types.ts';
+	import { untrack } from 'svelte';
+	import type { DrawnQuestion, FeedbackMoment, FeedbackPrompt, FeedbackReason } from '#lib/types.ts';
 	import { toTop } from '#lib/scroll.ts';
+	import { createTracker, uuid, type Tracker } from '#lib/stats/tracker.ts';
 	import Scoreboard from './Scoreboard.svelte';
+	import FeedbackBar from './FeedbackBar.svelte';
+	import Timer from './Timer.svelte';
+	import { unlockSound } from './sound.ts';
 	import { addSeen, buildExclude, loadSeen } from './history.ts';
 	import {
+		DEFAULT_TIMER,
 		MAX_PER_PLAYER,
 		MAX_PLAYERS,
+		MAX_TIMER_SECONDS,
+		MIN_TIMER_SECONDS,
 		addPlayer,
+		canGiveFeedback,
+		cleanTimer,
+		markFeedback,
+		sessionLog,
 		estimateMinutes,
 		finishTurn,
 		makePlayer,
@@ -25,7 +37,8 @@
 		startTurn,
 		swapQuestion,
 		winners,
-		type GameState
+		type GameState,
+		type TimerSettings
 	} from './logic';
 
 	let { start, onExit, onExpired }: GameProps = $props();
@@ -41,6 +54,16 @@
 	let resumeAsk = $state(false);
 	/** Te weinig nieuwe vragen: aanbieden om toch te spelen met vragen die al geweest zijn. */
 	let repeatOffer = $state<{ state: GameState; fresh: DrawnQuestion[]; needed: number } | null>(null);
+	/** Kwam "Alles al gespeeld?" in beeld bij het instellen van dit spel? */
+	let offeredRepeats = false;
+	/** Feedbackbalk na "andere vraag" of "niemand heeft het geraden". */
+	let feedback = $state<FeedbackPrompt | null>(null);
+	let feedbackKey = 0;
+	let tracker: Tracker | null = null;
+
+	// ---- timer (laatste keuze wordt op deze telefoon onthouden)
+	const TIMER_KEY = 'simplegames:timer';
+	let timer = $state<TimerSettings>({ ...DEFAULT_TIMER });
 
 	// ---- invoerscherm
 	let playerCount = $state<number | null>(null);
@@ -50,6 +73,8 @@
 	let age = $state<number | null>(null);
 	let taskCodes = $state<string[]>([]);
 	let categoryIds = $state<string[]>([]);
+	/** Soorten opdrachten, categorieën en timer staan achter een knop. */
+	let settingsOpen = $state(false);
 
 	// ---- menu tijdens het spel
 	let newPlayerName = $state('');
@@ -62,6 +87,14 @@
 	const minutes = $derived(
 		estimateMinutes(playerCount ?? 0, perPlayer ?? 0, start.game.minutesPerQuestion)
 	);
+	const settingsSummary = $derived(
+		[
+			taskCodes.length === start.taskTypes.length ? 'alle opdrachten' : `${taskCodes.length} van ${start.taskTypes.length} opdrachten`,
+			`${categoryIds.length} ${categoryIds.length === 1 ? 'categorie' : 'categorieën'}`,
+			timer.on ? `timer ${timer.seconds} sec` : 'geen timer'
+		].join(' · ')
+	);
+	const gameTimer = $derived(game.timer ?? timer);
 	const currentPlayer = $derived(game.current ? playerName(game.current.playerId) : '');
 	const upcoming = $derived.by(() => {
 		const s = game;
@@ -74,6 +107,12 @@
 	});
 
 	onMount(() => {
+		tracker = createTracker(() => start.token);
+		try {
+			timer = cleanTimer(JSON.parse(localStorage.getItem(TIMER_KEY) ?? 'null'));
+		} catch {
+			/* standaard */
+		}
 		const reloadHere = isReloadHere();
 		taskCodes = start.taskTypes.map((t) => t.code);
 		categoryIds = start.categories.filter((c) => !c.is18plus).map((c) => c.id);
@@ -91,7 +130,78 @@
 			/* negeren */
 		}
 		if (game.stage !== 'setup') topUp();
+		return () => {
+			tracker?.flush();
+			tracker?.dispose();
+		};
 	});
+
+	// Anonieme statistieken bijhouden (alleen aantallen en instellingen, geen namen).
+	$effect(() => {
+		const s = game;
+		untrack(() => {
+			if (!s.sessionId || s.stage === 'setup') return;
+			if (s.stage === 'end' && !s.endedAt) {
+				game = { ...s, endedAt: Date.now() };
+				return;
+			}
+			const log = sessionLog(s);
+			if (log) tracker?.session(log, s.stage === 'end');
+		});
+	});
+
+	// Feedbackbalk verdwijnt zodra er een ander scherm komt.
+	$effect(() => {
+		const stage = game.stage;
+		if (feedback && untrack(() => feedback?.stage) !== stage) feedback = null;
+	});
+
+	function saveTimer(t: TimerSettings) {
+		timer = cleanTimer(t);
+		try {
+			localStorage.setItem(TIMER_KEY, JSON.stringify(timer));
+		} catch {
+			/* negeren */
+		}
+	}
+
+	/** Timerinstellingen van dit spel aanpassen (via het menu). */
+	function setGameTimer(change: Partial<TimerSettings>) {
+		const t = cleanTimer({ ...(game.timer ?? timer), ...change });
+		game = { ...game, timer: t };
+		saveTimer(t);
+	}
+
+	function logQuestion(kind: 'guessed' | 'not_guessed' | 'swapped') {
+		if (!game.current || !game.sessionId) return;
+		tracker?.event({
+			session_id: game.sessionId,
+			question_id: game.current.question.id,
+			kind,
+			task_code: game.current.taskCode,
+			age: game.age
+		});
+	}
+
+	function askFeedback(moment: FeedbackMoment, q: DrawnQuestion) {
+		if (!game.sessionId || !canGiveFeedback(game, q.id)) return;
+		feedback = { key: ++feedbackKey, questionId: q.id, text: q.text, moment, stage: game.stage };
+	}
+
+	function giveFeedback(reason: FeedbackReason) {
+		if (!feedback || !game.sessionId || !canGiveFeedback(game, feedback.questionId)) return;
+		tracker?.feedback({
+			session_id: game.sessionId,
+			question_id: feedback.questionId,
+			reason,
+			moment: feedback.moment,
+			age: game.age
+		});
+		game = markFeedback(game, feedback.questionId);
+	}
+
+	/** Nieuw spel voor de statistieken. */
+	const newSession = () => ({ sessionId: uuid(), startedAt: Date.now(), endedAt: undefined, feedbackGiven: [] });
 
 	// Elk nieuw scherm in het spel begint bovenaan.
 	$effect(() => {
@@ -142,7 +252,15 @@
 	function quitToMenu() {
 		menuOpen = false;
 		confirmQuit = false;
+		logQuit();
 		exit();
+	}
+
+	/** Tussentijds gestopt zonder uitslag. */
+	function logQuit() {
+		if (!game.sessionId || game.stage === 'setup' || game.stage === 'end') return;
+		const log = sessionLog(game);
+		if (log) tracker?.session({ ...log, ended_at: Date.now(), end_reason: 'quit' }, true);
 	}
 
 	function setPlayerCount(n: number | null) {
@@ -210,17 +328,28 @@
 		if (perPlayer === null || perPlayer < 1 || perPlayer > MAX_PER_PLAYER)
 			return (message = `Kies 1 tot ${MAX_PER_PLAYER} vragen per speler.`);
 		if (age === null || age < 1 || age > 120) return (message = 'Vul de leeftijd van de jongste speler in.');
-		if (taskCodes.length === 0) return (message = 'Kies minstens één soort opdracht.');
-		if (categoryIds.length === 0) return (message = 'Zet minstens één categorie aan.');
+		if (taskCodes.length === 0) {
+			settingsOpen = true;
+			return (message = 'Kies minstens één soort opdracht (bij Spelinstellingen).');
+		}
+		if (categoryIds.length === 0) {
+			settingsOpen = true;
+			return (message = 'Zet minstens één categorie aan (bij Spelinstellingen).');
+		}
 
+		const t = cleanTimer(timer);
+		saveTimer(t);
 		const s: GameState = {
 			...newState(),
+			...newSession(),
 			stage: 'turn',
 			players: entered.map((p) => makePlayer(p.name, p.skip)),
 			perPlayer,
 			age,
 			taskCodes: [...taskCodes],
-			categoryIds: [...categoryIds]
+			categoryIds: [...categoryIds],
+			timer: t,
+			repeatsOffered: offeredRepeats
 		};
 		repeatOffer = null;
 		loading = true;
@@ -230,6 +359,7 @@
 			if (qs.length < needed) {
 				// Te weinig vragen die nog niet geweest zijn: eerst vragen of herhalen mag.
 				repeatOffer = { state: s, fresh: qs, needed };
+				offeredRepeats = true;
 				return;
 			}
 			game = { ...s, queue: qs };
@@ -244,7 +374,7 @@
 	async function playWithRepeats() {
 		if (!repeatOffer) return;
 		const { state, fresh } = repeatOffer;
-		const s: GameState = { ...state, allowRepeats: true };
+		const s: GameState = { ...state, allowRepeats: true, repeatsOffered: true, playedRepeats: true };
 		loading = true;
 		message = '';
 		try {
@@ -266,6 +396,12 @@
 		}
 	}
 
+	function showQuestion() {
+		// Geluid mag op telefoons alleen starten na een tik; daarom hier alvast klaarzetten.
+		if (game.timer?.on && game.timer.sound) unlockSound();
+		game = { ...game, stage: 'question' };
+	}
+
 	async function showTaskType() {
 		message = '';
 		if (game.queue.length === 0) await topUp();
@@ -278,11 +414,17 @@
 			message = 'Er zijn geen andere vragen meer.';
 			return;
 		}
+		const old = game.current?.question;
+		logQuestion('swapped');
 		game = swapQuestion(game);
+		if (old) askFeedback('andere_vraag', old);
 	}
 
 	function guessed(by: string | null) {
+		const q = game.current?.question;
+		logQuestion(by ? 'guessed' : 'not_guessed');
 		game = finishTurn(game, by);
+		if (!by && q) askFeedback('niet_geraden', q);
 	}
 
 	async function addPlayerNow() {
@@ -316,7 +458,7 @@
 
 	async function again() {
 		message = '';
-		game = playAgain(game);
+		game = { ...playAgain(game), ...newSession(), repeatsOffered: false, playedRepeats: false };
 		await topUp();
 	}
 
@@ -328,9 +470,13 @@
 		age = game.age;
 		game = newState();
 		message = '';
+		offeredRepeats = false;
+		feedback = null;
 	}
 
 	function exit() {
+		logQuit();
+		void tracker?.flush();
 		try {
 			sessionStorage.removeItem(storageKey);
 		} catch {
@@ -413,38 +559,80 @@
 			</section>
 		{/if}
 
-		<section class="card stack">
-			<h2>Soort opdrachten</h2>
-			<div>
-				{#each start.taskTypes as t (t.id)}
-					<label class="check">
-						<input
-							type="checkbox"
-							checked={taskCodes.includes(t.code)}
-							onchange={(e) => (taskCodes = toggle(taskCodes, t.code, e.currentTarget.checked))}
-						/>
-						{t.name}
-					</label>
-				{/each}
-			</div>
-
-			<h2>Categorieën</h2>
-			<div>
-				{#each start.categories as c (c.id)}
-					{@const disabled = c.is18plus && adultBlocked}
-					<label class="check" class:disabled>
-						<input
-							type="checkbox"
-							{disabled}
-							checked={categoryIds.includes(c.id)}
-							onchange={(e) => (categoryIds = toggle(categoryIds, c.id, e.currentTarget.checked))}
-						/>
-						{c.name}
-						{#if disabled}<span class="small muted">(alleen als alle spelers 18 of ouder zijn)</span>{/if}
-					</label>
-				{/each}
-			</div>
+		<section class="card stack settings">
+			<button
+				class="settings-toggle"
+				aria-expanded={settingsOpen}
+				aria-controls="spelinstellingen"
+				onclick={() => (settingsOpen = !settingsOpen)}
+			>
+				<span class="settings-title"><span aria-hidden="true">⚙</span> Spelinstellingen</span>
+				<span class="settings-summary">{settingsSummary}</span>
+				<span class="chev" aria-hidden="true">{settingsOpen ? '▲' : '▼'}</span>
+			</button>
 		</section>
+		{#if settingsOpen}
+			<div id="spelinstellingen" class="stack">
+			<section class="card stack">
+				<h2>Soort opdrachten</h2>
+				<div>
+					{#each start.taskTypes as t (t.id)}
+						<label class="check">
+							<input
+								type="checkbox"
+								checked={taskCodes.includes(t.code)}
+								onchange={(e) => (taskCodes = toggle(taskCodes, t.code, e.currentTarget.checked))}
+							/>
+							{t.name}
+						</label>
+					{/each}
+				</div>
+
+				<h2>Categorieën</h2>
+				<div>
+					{#each start.categories as c (c.id)}
+						{@const disabled = c.is18plus && adultBlocked}
+						<label class="check" class:disabled>
+							<input
+								type="checkbox"
+								{disabled}
+								checked={categoryIds.includes(c.id)}
+								onchange={(e) => (categoryIds = toggle(categoryIds, c.id, e.currentTarget.checked))}
+							/>
+							{c.name}
+							{#if disabled}<span class="small muted">(alleen als alle spelers 18 of ouder zijn)</span>{/if}
+						</label>
+					{/each}
+				</div>
+			</section>
+
+			<section class="card stack">
+				<h2>Timer</h2>
+				<label class="check">
+					<input type="checkbox" checked={timer.on} onchange={(e) => (timer = { ...timer, on: e.currentTarget.checked })} />
+					Timer gebruiken
+				</label>
+				{#if timer.on}
+					<div class="field">
+						<label for="seconden">Hoeveel seconden per beurt?</label>
+						<input
+							id="seconden"
+							type="number"
+							inputmode="numeric"
+							min={MIN_TIMER_SECONDS}
+							max={MAX_TIMER_SECONDS}
+							value={timer.seconds}
+							onchange={(e) => (timer = cleanTimer({ ...timer, seconds: Number(e.currentTarget.value) }))}
+						/>
+					</div>
+					<label class="check">
+						<input type="checkbox" checked={timer.sound} onchange={(e) => (timer = { ...timer, sound: e.currentTarget.checked })} />
+						Geluid als de tijd om is
+					</label>
+				{/if}
+			</section>
+			</div>
+		{/if}
 
 		{#if message}<p class="error" role="alert">{message}</p>{/if}
 		{#if repeatOffer}
@@ -511,6 +699,31 @@
 						<button class="btn" onclick={changeAge} disabled={!newAge}>Aanpassen</button>
 					</div>
 				</div>
+				<fieldset class="skipset">
+					<legend>Timer</legend>
+					<label class="check small-check">
+						<input type="checkbox" checked={gameTimer.on} onchange={(e) => setGameTimer({ on: e.currentTarget.checked })} />
+						Timer aan
+					</label>
+					{#if gameTimer.on}
+						<label class="check small-check">
+							<input type="checkbox" checked={gameTimer.sound} onchange={(e) => setGameTimer({ sound: e.currentTarget.checked })} />
+							Geluid aan
+						</label>
+						<div class="row seconds">
+							<label for="menu-seconden">Seconden</label>
+							<input
+								id="menu-seconden"
+								type="number"
+								inputmode="numeric"
+								min={MIN_TIMER_SECONDS}
+								max={MAX_TIMER_SECONDS}
+								value={gameTimer.seconds}
+								onchange={(e) => setGameTimer({ seconds: Number(e.currentTarget.value) })}
+							/>
+						</div>
+					{/if}
+				</fieldset>
 				<button class="btn" onclick={stopGame}>Spel afronden en uitslag tonen</button>
 				{#if confirmQuit}
 					<div class="quit stack" role="group" aria-label="Stoppen bevestigen">
@@ -550,7 +763,7 @@
 			<section class="turn">
 				<p class="label">{currentPlayer}, jouw opdracht is</p>
 				<p class="task" data-testid="soort">{taskName(game.current.taskCode)}</p>
-				<button class="btn btn-red btn-big" onclick={() => (game = { ...game, stage: 'question' })}>
+				<button class="btn btn-red btn-big" onclick={showQuestion}>
 					Laat vraag zien
 				</button>
 			</section>
@@ -558,7 +771,13 @@
 			<section class="turn">
 				<p class="pill">{taskName(game.current.taskCode)}</p>
 				<p class="question" data-testid="vraag">{game.current.question.text}</p>
-				<p class="muted small">Leg de telefoon omgekeerd neer en begin!</p>
+				{#if game.timer?.on}
+					{#key game.current.question.id + (game.timer.seconds)}
+						<Timer seconds={game.timer.seconds} sound={game.timer.sound} />
+					{/key}
+				{:else}
+					<p class="muted small">Leg de telefoon omgekeerd neer en begin!</p>
+				{/if}
 				<button class="btn btn-green btn-big" onclick={() => (game = { ...game, stage: 'guess' })}>Klaar!</button>
 				{#if game.players.find((p) => p.id === game.current?.playerId)?.canSkip}
 					<button class="btn btn-big skip" onclick={otherQuestion} disabled={loading}>Overslaan, andere vraag</button>
@@ -599,6 +818,12 @@
 		{/if}
 	{/if}
 </main>
+
+{#if feedback}
+	{#key feedback.key}
+		<FeedbackBar prompt={feedback} onPick={giveFeedback} onClose={() => (feedback = null)} />
+	{/key}
+{/if}
 
 <style>
 	.game {
@@ -695,6 +920,46 @@
 	.skipset legend {
 		font-weight: 600;
 		padding: 0 6px;
+	}
+	.settings {
+		padding: 0;
+	}
+	.settings-toggle {
+		display: grid;
+		grid-template-columns: 1fr auto;
+		gap: 2px 12px;
+		width: 100%;
+		min-height: 64px;
+		padding: 12px 18px;
+		background: none;
+		border: none;
+		color: var(--text);
+		font: inherit;
+		text-align: left;
+		cursor: pointer;
+	}
+	.settings-title {
+		font-weight: 700;
+		font-size: 1.1rem;
+	}
+	.settings-summary {
+		grid-column: 1;
+		color: var(--muted);
+		font-size: 0.9rem;
+	}
+	.chev {
+		grid-column: 2;
+		grid-row: 1 / span 2;
+		align-self: center;
+		color: var(--cyan);
+	}
+	.seconds {
+		align-items: center;
+		gap: 10px;
+		padding: 4px 0 8px;
+	}
+	.seconds input {
+		max-width: 110px;
 	}
 	.skip {
 		border-color: var(--yellow) !important;

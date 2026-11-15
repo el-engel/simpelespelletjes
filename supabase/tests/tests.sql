@@ -151,4 +151,114 @@ update games set rules = 'Nieuwe regels', minutes_per_question = 1.5 where slug 
 select pg_temp.check((select minutes_per_question from games where slug = 'raadspel') = 1.5, 'admin kan spel bewerken');
 reset role;
 
+
+-- ---------------------------------------------------------------- feedback en statistieken
+-- anoniem en gewone gebruikers kunnen er niet bij
+set role anon;
+select set_config('request.jwt.claims', '{"role":"anon"}', false);
+do $$ begin
+  perform 1 from question_feedback limit 1;
+  raise exception 'anon mag feedback niet lezen';
+exception when insufficient_privilege then null; end $$;
+do $$ begin
+  perform log_play((select id from games limit 1), gen_random_uuid(), '[]', '[]', '[]');
+  raise exception 'anon mag log_play niet aanroepen';
+exception when insufficient_privilege then null; end $$;
+do $$ begin
+  perform record_visit(gen_random_uuid());
+  raise exception 'anon mag record_visit niet aanroepen';
+exception when insufficient_privilege then null; end $$;
+do $$ begin
+  insert into question_feedback (session_id, game_id, question_id, reason, moment) values (gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), 'prima', 'niet_geraden');
+  raise exception 'anon mag geen feedback schrijven';
+exception when insufficient_privilege then null; end $$;
+reset role;
+
+set role service_role;
+select record_visit('11111111-1111-4111-8111-111111111111');
+select record_visit('11111111-1111-4111-8111-111111111111');
+select log_play(
+  (select id from games where slug = 'raadspel'),
+  '22222222-2222-4222-8222-222222222222',
+  jsonb_build_array(jsonb_build_object(
+    'id', 'aaaaaaaa-0000-4000-8000-000000000001', 'started_at', extract(epoch from now() - interval '20 minutes') * 1000,
+    'players', 3, 'per_player', 2, 'age', 8, 'task_codes', jsonb_build_array('uitbeelden', 'tekenen'),
+    'category_ids', (select jsonb_agg(id) from categories where not is_18plus), 'skip_players', 1,
+    'repeats_offered', true, 'played_repeats', true, 'turns', 0)),
+  jsonb_build_array(
+    jsonb_build_object('id', gen_random_uuid(), 'session_id', 'aaaaaaaa-0000-4000-8000-000000000001',
+      'question_id', (select id from questions where text = 'Olifant met slurf'), 'kind', 'swapped', 'task_code', 'tekenen', 'age', 8),
+    jsonb_build_object('id', 'eeeeeeee-0000-4000-8000-000000000001', 'session_id', 'aaaaaaaa-0000-4000-8000-000000000001',
+      'question_id', (select id from questions where text = 'Zwemmen'), 'kind', 'not_guessed', 'task_code', 'uitbeelden', 'age', 8),
+    jsonb_build_object('id', gen_random_uuid(), 'session_id', 'aaaaaaaa-0000-4000-8000-000000000001',
+      'question_id', (select id from questions where text = 'Tennis'), 'kind', 'guessed', 'task_code', 'uitbeelden', 'age', 8),
+    jsonb_build_object('id', gen_random_uuid(), 'session_id', 'aaaaaaaa-0000-4000-8000-000000000001',
+      'question_id', gen_random_uuid(), 'kind', 'guessed', 'task_code', 'uitbeelden', 'age', 8),
+    jsonb_build_object('id', gen_random_uuid(), 'session_id', 'aaaaaaaa-0000-4000-8000-000000000001',
+      'question_id', (select id from questions where text = 'Tennis'), 'kind', 'gehackt', 'task_code', 'uitbeelden', 'age', 8)
+  ),
+  jsonb_build_array(
+    jsonb_build_object('session_id', 'aaaaaaaa-0000-4000-8000-000000000001',
+      'question_id', (select id from questions where text = 'Olifant met slurf'), 'reason', 'te_moeilijk', 'moment', 'andere_vraag', 'age', 8),
+    jsonb_build_object('session_id', 'aaaaaaaa-0000-4000-8000-000000000001',
+      'question_id', (select id from questions where text = 'Olifant met slurf'), 'reason', 'niet_leuk', 'moment', 'andere_vraag', 'age', 8),
+    jsonb_build_object('session_id', 'aaaaaaaa-0000-4000-8000-000000000001',
+      'question_id', (select id from questions where text = 'Zwemmen'), 'reason', 'prima', 'moment', 'niet_geraden', 'age', 8),
+    jsonb_build_object('session_id', 'aaaaaaaa-0000-4000-8000-000000000001',
+      'question_id', (select id from questions where text = 'Tennis'), 'reason', 'onzin', 'moment', 'niet_geraden', 'age', 8)
+  )
+);
+-- zelfde gebeurtenis nog een keer (bijvoorbeeld opnieuw verstuurd) en spel afgerond
+select log_play(
+  (select id from games where slug = 'raadspel'),
+  '22222222-2222-4222-8222-222222222222',
+  jsonb_build_array(jsonb_build_object(
+    'id', 'aaaaaaaa-0000-4000-8000-000000000001', 'started_at', extract(epoch from now() - interval '20 minutes') * 1000,
+    'ended_at', extract(epoch from now()) * 1000, 'end_reason', 'done',
+    'players', 3, 'per_player', 2, 'age', 8, 'task_codes', jsonb_build_array('uitbeelden', 'tekenen'),
+    'category_ids', jsonb_build_array(gen_random_uuid()), 'skip_players', 1, 'turns', 6)),
+  jsonb_build_array(
+    jsonb_build_object('id', 'eeeeeeee-0000-4000-8000-000000000001', 'session_id', 'aaaaaaaa-0000-4000-8000-000000000001',
+      'question_id', (select id from questions where text = 'Zwemmen'), 'kind', 'not_guessed', 'task_code', 'uitbeelden', 'age', 8)),
+  '[]'
+);
+reset role;
+select pg_temp.check((select count(*) from visits) = 2 and (select count(*) from devices) = 2, 'bezoek telt één keer per toestel per dag');
+select pg_temp.check((select count(*) from question_events) = 3, 'alleen geldige gebeurtenissen, geen dubbele');
+select pg_temp.check((select count(*) from question_feedback) = 2, 'feedback één keer per vraag per spel, onzin geweigerd');
+select pg_temp.check((select end_reason = 'done' and turns = 6 and played_repeats and category_ids = '{}' from play_sessions),
+  'spel bijgewerkt; onbekende categorie genegeerd; Toch spelen onthouden');
+
+-- admin zonder 2FA ziet niets
+set role authenticated;
+select set_config('request.jwt.claims', '{"role":"authenticated","aal":"aal1","app_metadata":{"role":"admin"}}', false);
+select pg_temp.check((select count(*) from question_feedback) = 0, 'admin zonder 2FA ziet geen feedback');
+do $$ begin
+  perform admin_stats((select id from games limit 1), current_date - 30, current_date);
+  raise exception 'statistieken zonder 2FA had moeten falen';
+exception when insufficient_privilege then null; end $$;
+
+-- admin met 2FA
+select set_config('request.jwt.claims', '{"role":"authenticated","aal":"aal2","app_metadata":{"role":"admin"}}', false);
+select pg_temp.check(jsonb_array_length(r) = 3, 'vraagstatistiek: 3 vragen') from (
+  select admin_question_stats((select id from games where slug = 'raadspel'), nl_today() - 30, nl_today()) r) x;
+select pg_temp.check((r -> 0 ->> 'text') = 'Olifant met slurf' and (r -> 0 ->> 'reports')::int = 1
+  and (r -> 0 ->> 'te_moeilijk')::int = 1 and (r -> 0 -> 'by_age' -> '7-9' ->> 'swapped')::int = 1,
+  'meest gemelde vraag bovenaan, met leeftijdsgroep') from (
+  select admin_question_stats((select id from games where slug = 'raadspel'), nl_today() - 30, nl_today()) r) x;
+select pg_temp.check((r -> 'summary' ->> 'games')::int = 1 and (r -> 'summary' ->> 'completed')::int = 1
+  and (r -> 'summary' ->> 'avg_minutes')::numeric between 19 and 21 and (r -> 'visitors' ->> 'visitors')::int = 2
+  and (r -> 'visitors' ->> 'new')::int = 2 and (r -> 'questions' ->> 'swapped')::int = 1
+  and (select count(*) from jsonb_array_elements(r -> 'series') e where e ->> 'unit' = 'day') = 31
+  and (r -> 'ages' -> 0 ->> 'group') = '7-9', 'statistieken kloppen')
+from (select admin_stats((select id from games where slug = 'raadspel'), nl_today() - 30, nl_today()) r) x;
+update question_feedback set dismissed = true where question_id = (select id from questions where text = 'Olifant met slurf');
+select pg_temp.check((r -> 0 ->> 'reports')::int = 0, 'negeren haalt meldingen weg') from (
+  select admin_question_stats((select id from games where slug = 'raadspel'), nl_today() - 30, nl_today()) r) x;
+do $$ begin
+  update question_feedback set reason = 'prima';
+  raise exception 'admin mag alleen negeren, niet de reden aanpassen';
+exception when insufficient_privilege then null; end $$;
+reset role;
+
 \echo 'Alle databasetests geslaagd'

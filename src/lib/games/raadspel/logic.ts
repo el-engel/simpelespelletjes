@@ -1,5 +1,5 @@
 // Spelregels van het raadspel als losse functies, zodat ze te testen zijn.
-import type { DrawnQuestion } from '../../types';
+import type { DrawnQuestion, SessionLog } from '../../types';
 
 export interface Player {
 	id: string;
@@ -36,6 +36,44 @@ export interface GameState {
 	endReason: 'done' | 'out' | 'stopped' | null;
 	/** Mogen vragen terugkomen die op deze telefoon al eens gespeeld zijn? */
 	allowRepeats?: boolean;
+	/** Timer per beurt. */
+	timer?: TimerSettings;
+	/** Anonieme statistieken: nummer van dit spel en wanneer het begon/eindigde. */
+	sessionId?: string;
+	startedAt?: number;
+	endedAt?: number;
+	/** Kwam "Alles al gespeeld?" in beeld, en werd er op "Toch spelen" gedrukt? */
+	repeatsOffered?: boolean;
+	playedRepeats?: boolean;
+	/** Vragen die in dit spel al feedback kregen (maximaal één keer per vraag). */
+	feedbackGiven?: string[];
+}
+
+export interface TimerSettings {
+	on: boolean;
+	seconds: number;
+	sound: boolean;
+}
+
+export const DEFAULT_TIMER: TimerSettings = { on: true, seconds: 60, sound: true };
+export const MIN_TIMER_SECONDS = 5;
+export const MAX_TIMER_SECONDS = 600;
+
+/** Houdt de timerinstellingen binnen redelijke grenzen. */
+export function cleanTimer(t: Partial<TimerSettings> | null | undefined): TimerSettings {
+	const n = Math.round(Number(t?.seconds));
+	return {
+		on: typeof t?.on === 'boolean' ? t.on : DEFAULT_TIMER.on,
+		seconds: Number.isFinite(n) ? Math.min(MAX_TIMER_SECONDS, Math.max(MIN_TIMER_SECONDS, n)) : DEFAULT_TIMER.seconds,
+		sound: typeof t?.sound === 'boolean' ? t.sound : DEFAULT_TIMER.sound
+	};
+}
+
+/** "1:05" of "45". */
+export function formatSeconds(sec: number): string {
+	const s = Math.max(0, Math.ceil(sec));
+	if (s < 60) return String(s);
+	return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
 export const MAX_PLAYERS = 20;
@@ -187,4 +225,34 @@ export function playAgain(s: GameState): GameState {
 /** Zet "mag vragen overslaan" aan of uit voor één speler. */
 export function setCanSkip(s: GameState, playerId: string, canSkip: boolean): GameState {
 	return { ...s, players: s.players.map((p) => (p.id === playerId ? { ...p, canSkip } : p)) };
+}
+
+/** Mag er voor deze vraag (nog) feedback gegeven worden in dit spel? */
+export function canGiveFeedback(s: GameState, questionId: string): boolean {
+	return !(s.feedbackGiven ?? []).includes(questionId);
+}
+
+export function markFeedback(s: GameState, questionId: string): GameState {
+	return { ...s, feedbackGiven: [...new Set([...(s.feedbackGiven ?? []), questionId])] };
+}
+
+/** Anonieme samenvatting van het spel voor de statistieken (zonder namen). */
+export function sessionLog(s: GameState, now = Date.now()): SessionLog | null {
+	if (!s.sessionId) return null;
+	const ended = s.stage === 'end';
+	return {
+		id: s.sessionId,
+		started_at: s.startedAt ?? now,
+		ended_at: ended ? (s.endedAt ?? now) : null,
+		end_reason: ended ? s.endReason : null,
+		players: s.players.length,
+		per_player: s.perPlayer,
+		age: s.age,
+		task_codes: [...s.taskCodes],
+		category_ids: [...s.categoryIds],
+		skip_players: s.players.filter((p) => p.canSkip).length,
+		repeats_offered: !!s.repeatsOffered,
+		played_repeats: !!s.playedRepeats,
+		turns: s.players.reduce((n, p) => n + p.turns, 0)
+	};
 }
