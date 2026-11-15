@@ -32,6 +32,18 @@ export const variables = defineEnvVars({
 		schema: optional,
 		description: 'Lange willekeurige tekst om spel-tokens te ondertekenen'
 	},
+	RESEND_API_KEY: {
+		schema: optional,
+		description: 'API-sleutel van Resend om contactberichten te mailen (optioneel)'
+	},
+	CONTACT_EMAIL_TO: {
+		schema: optional,
+		description: 'E-mailadres van de beheerder dat contactberichten ontvangt (optioneel)'
+	},
+	CONTACT_EMAIL_FROM: {
+		schema: optional,
+		description: 'Afzender van de contactmail; standaard onboarding@resend.dev (optioneel)'
+	},
 	DEMO_MODE: {
 		schema: optional,
 		description: 'Alleen lokaal: 1 = spelen met voorbeeldvragen zonder Supabase'

@@ -39,6 +39,7 @@ interface Db {
 	calls: { method: string; path: string; body: unknown }[];
 	admin: boolean;
 	stats: Record<string, unknown>[];
+	messages: { id: string; created_at: string; name: string; email: string; phone: string; message: string; is_read: boolean; emailed: boolean }[];
 }
 
 function freshDb(): Db {
@@ -57,6 +58,10 @@ function freshDb(): Db {
 		factors: [],
 		admin: true,
 		calls: [],
+		messages: [
+			{ id: 'm2', created_at: '2026-11-15T19:30:00Z', name: 'Kim', email: 'kim@voorbeeld.nl', phone: '06 12345678', message: 'Kunnen er meer dieren bij?\nGroetjes', is_read: false, emailed: true },
+			{ id: 'm1', created_at: '2026-11-14T09:00:00Z', name: 'Piet', email: 'piet@voorbeeld.nl', phone: '', message: 'Top spel', is_read: true, emailed: false }
+		],
 		stats: [
 			{
 				id: 'q2', public_id: 'RS-00002', text: 'Pindarotsje', min_age: 6, active: true,
@@ -222,6 +227,18 @@ async function mockSupabase(page: Page, db: Db) {
 			const id = (url.searchParams.get('question_id') ?? '').replace(/^eq\./, '');
 			db.stats = db.stats.map((q) => (q.id === id ? { ...q, dismissed: q.reports, reports: 0, te_moeilijk: 0, leeftijd: 0, niet_leuk: 0 } : q));
 			return route.fulfill({ status: 204 });
+		}
+		if (p === '/rest/v1/contact_messages') {
+			const ids = (url.searchParams.get('id') ?? '').replace(/^in\.\(|^eq\.|\)$/g, '').split(',').map((s) => s.replace(/"/g, ''));
+			if (method === 'PATCH') {
+				db.messages = db.messages.map((m) => (ids.includes(m.id) ? { ...m, ...body } : m));
+				return route.fulfill({ status: 204 });
+			}
+			if (method === 'DELETE') {
+				db.messages = db.messages.filter((m) => !ids.includes(m.id));
+				return route.fulfill({ status: 204 });
+			}
+			return json(db.messages);
 		}
 		return json({ message: `niet nagebootst: ${method} ${p}` }, 404);
 	});
@@ -491,4 +508,31 @@ test('statistieken: kerncijfers, grafieken en Excel', async ({ page }) => {
 	expect(download.suggestedFilename()).toMatch(/^statistieken-raadspel-.*\.xlsx$/);
 	const call = db.calls.find((c) => c.path === '/rest/v1/rpc/admin_stats');
 	expect(call?.body).toMatchObject({ p_game: GAME });
+});
+
+test('berichten: lezen, markeren als gelezen en verwijderen', async ({ page }) => {
+	const db = freshDb();
+	await loginAsAdmin(page, db);
+	await page.getByRole('link', { name: 'Berichten' }).click();
+	await expect(page.getByRole('heading', { name: 'Berichten' })).toBeVisible();
+	await expect(page.getByTestId('telling')).toHaveText('2 van 2 berichten · 1 ongelezen');
+	const kim = page.locator('li', { hasText: 'Kim' });
+	await expect(kim).toContainText('Kunnen er meer dieren bij?');
+	await expect(kim).toContainText('nieuw');
+	await expect(kim.getByRole('link', { name: 'Beantwoorden' })).toHaveAttribute('href', /^mailto:kim%40voorbeeld\.nl\?subject=/);
+	await expect(page.locator('li', { hasText: 'Piet' })).toContainText('niet gemaild');
+
+	await page.getByLabel('Alleen ongelezen').check();
+	await expect(page.getByTestId('telling')).toHaveText('1 van 2 berichten · 1 ongelezen');
+	await kim.getByRole('button', { name: 'Markeer als gelezen' }).click();
+	await expect(page.getByText('Bericht van Kim is gelezen.')).toBeVisible();
+	expect(db.messages.find((m) => m.id === 'm2')?.is_read).toBe(true);
+	await page.getByLabel('Alleen ongelezen').uncheck();
+
+	const piet = page.locator('li', { hasText: 'Piet' });
+	await piet.getByRole('button', { name: 'Verwijderen' }).click();
+	await piet.getByRole('button', { name: 'Ja, verwijderen' }).click();
+	await expect(page.getByText('Bericht van Piet is verwijderd.')).toBeVisible();
+	await expect(page.getByTestId('telling')).toHaveText('1 van 1 berichten · 0 ongelezen');
+	expect(db.messages.map((m) => m.id)).toEqual(['m2']);
 });

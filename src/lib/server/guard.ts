@@ -4,7 +4,13 @@ import { data } from './data';
 import { serverConfig } from './config';
 
 /** Botbescherming: maximaal `max` verzoeken per IP-adres per `windowSeconds`. */
-export async function rateLimit(event: RequestEvent, purpose: string, max: number, windowSeconds: number) {
+export async function rateLimit(
+	event: RequestEvent,
+	purpose: string,
+	max: number,
+	windowSeconds: number,
+	tooMany = 'Te veel verzoeken. Wacht een minuutje en probeer het opnieuw.'
+) {
 	let ip = 'onbekend';
 	try {
 		ip = event.getClientAddress();
@@ -14,7 +20,7 @@ export async function rateLimit(event: RequestEvent, purpose: string, max: numbe
 	// Het IP-adres zelf wordt niet opgeslagen, alleen een onherleidbare hash.
 	const hash = createHash('sha256').update(`${ip}|${serverConfig().tokenSecret}`).digest('hex').slice(0, 32);
 	const ok = await data().hitRateLimit(`${purpose}:${hash}`, max, windowSeconds);
-	if (!ok) error(429, 'Te veel verzoeken. Wacht een minuutje en probeer het opnieuw.');
+	if (!ok) error(429, tooMany);
 	return ip;
 }
 

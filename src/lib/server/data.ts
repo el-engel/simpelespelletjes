@@ -2,6 +2,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { DrawnQuestion, GameDetails, GameSummary, LogBatch } from '#lib/types.ts';
 import { isDemo, serverConfig } from './config';
 import { demoData } from './demo';
+import type { ContactInput } from './contact';
 
 export interface DrawParams {
 	gameId: string;
@@ -22,6 +23,8 @@ export interface DataSource {
 	logPlay(gameId: string, batch: LogBatch): Promise<void>;
 	/** Bezoek tellen (één keer per toestel per dag). */
 	recordVisit(deviceId: string): Promise<void>;
+	/** Contactbericht bewaren (alleen voor de admin te lezen). */
+	saveContactMessage(c: ContactInput, emailed: boolean): Promise<void>;
 }
 
 let client: SupabaseClient | null = null;
@@ -120,6 +123,17 @@ const supabaseData: DataSource = {
 
 	async recordVisit(deviceId) {
 		const { error } = await supabase().rpc('record_visit', { p_device: deviceId });
+		if (error) throw error;
+	},
+
+	async saveContactMessage(c, emailed) {
+		const { error } = await supabase().rpc('save_contact_message', {
+			p_name: c.name,
+			p_email: c.email,
+			p_phone: c.phone,
+			p_message: c.message,
+			p_emailed: emailed
+		});
 		if (error) throw error;
 	}
 };
