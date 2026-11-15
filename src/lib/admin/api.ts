@@ -95,7 +95,7 @@ export function message(e: unknown): string {
 	return 'Er ging iets mis.';
 }
 
-function check<T>(res: { data: T; error: unknown }): T {
+export function check<T>(res: { data: T; error: unknown }): T {
 	if (res.error) throw new Error(message(res.error));
 	return res.data;
 }

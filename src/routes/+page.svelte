@@ -32,6 +32,10 @@
 			<li class="soon">Meer spellen komen eraan</li>
 		</ul>
 	{/if}
+
+	<footer class="foot">
+		<a class="btn contact" href="/contact">Contact</a>
+	</footer>
 </main>
 
 <style>
@@ -100,6 +104,15 @@
 		font-size: 1.2rem;
 		text-transform: uppercase;
 		box-shadow: var(--glow-lime);
+	}
+	.foot {
+		margin-top: 24px;
+		padding-bottom: 24px;
+		display: flex;
+		justify-content: center;
+	}
+	.contact {
+		min-width: 180px;
 	}
 	.soon {
 		border: 2px dashed var(--line);

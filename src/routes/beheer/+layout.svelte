@@ -19,7 +19,8 @@
 		{ href: '/beheer/categorieen', label: 'Categorieën en soorten' },
 		{ href: '/beheer/spellen', label: 'Spellen en spelregels' },
 		{ href: '/beheer/feedback', label: 'Feedback' },
-		{ href: '/beheer/statistieken', label: 'Statistieken' }
+		{ href: '/beheer/statistieken', label: 'Statistieken' },
+		{ href: '/beheer/berichten', label: 'Berichten' }
 	];
 
 	async function guard() {

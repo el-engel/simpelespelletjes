@@ -35,6 +35,8 @@ Houd een leeg tekstbestand of notitie open. Daarin plak je onderweg zes waarden.
 4. Plak het in de SQL Editor van Supabase en klik op **Run** (rechtsonder). Je ziet "Success. No rows returned".
 5. Doe hetzelfde met `supabase/migrations/20261115000000_feedback_statistieken.sql`: https://github.com/el-engel/simpelespelletjes/blob/main/supabase/migrations/20261115000000_feedback_statistieken.sql
    Daarmee komen de feedbackknoppen en de statistieken erbij.
+   Daarna ook `supabase/migrations/20261116000000_contact.sql`: https://github.com/el-engel/simpelespelletjes/blob/main/supabase/migrations/20261116000000_contact.sql
+   Daarmee komt het contactformulier erbij (e-mail instellen: zie "Bijwerken: contactformulier toevoegen" verderop).
 6. Doe hetzelfde met `supabase/seed.sql`: https://github.com/el-engel/simpelespelletjes/blob/main/supabase/seed.sql
    Daarmee komen het raadspel, de categorieën en 40 voorbeeldvragen erin.
 
@@ -147,10 +149,59 @@ Draai je de app al? Dan doe je dit één keer, direct nadat je de nieuwe versie 
 
 Het bestand mag je gerust nog een keer uitvoeren; dat kan geen kwaad.
 
+## Bijwerken: contactformulier toevoegen (als de app al online staat)
+
+Onderaan het beginscherm staat een knop **Contact**. Berichten komen altijd in `/beheer` onder **Berichten**. Wil je ze ook per e-mail krijgen, dan heb je een gratis account bij Resend nodig (geen creditcard).
+
+Doe de stappen in deze volgorde, **vóór** je de nieuwe versie samenvoegt. Dan hoeft Netlify maar één keer te bouwen.
+
+### A. De database uitbreiden (2 minuten)
+
+1. Open je project in Supabase: https://supabase.com/dashboard/projects en klik op **simplegames**.
+2. Klik links op **SQL Editor** (het icoon met `>_`) en daarna op **+ New query**.
+3. Open https://github.com/el-engel/simpelespelletjes/blob/main/supabase/migrations/20261116000000_contact.sql en klik rechtsboven op het **kopieer-icoon** ("Copy raw file"). (Is de nieuwe versie nog niet samengevoegd, open dan het bestand via de link in de pull request.)
+4. Plak het in de SQL Editor en klik rechtsonder op **Run**. Je ziet "Success. No rows returned".
+   - Zie je een melding over "destructive operations"? Klik op **Run this query**. Er wordt niets weggegooid.
+
+### B. Gratis account bij Resend (5 minuten, alleen voor e-mailmeldingen)
+
+1. Ga naar https://resend.com/signup en maak een account met **het e-mailadres waarop je de berichten wilt ontvangen**. Bevestig je e-mailadres via de mail die je krijgt.
+   - Zonder eigen domeinnaam mag Resend alleen mailen naar het adres waarmee je het account hebt gemaakt. Dat is precies wat we nodig hebben.
+2. Sla vragen over een domein ("Add domain") over.
+3. Ga naar https://resend.com/api-keys en klik op **Create API key**.
+   - Name: `simpelespelletjes`
+   - Permission: **Sending access**
+   - Klik op **Add** (of **Create**).
+4. Je ziet een sleutel die begint met `re_`. **Kopieer hem meteen**; je ziet hem maar één keer.
+
+Gratis bij Resend: 3.000 mails per maand en 100 per dag. Er komt geen rekening, want je koppelt geen creditcard.
+
+### C. De sleutel in Netlify zetten (2 minuten)
+
+1. Ga naar https://app.netlify.com, klik op je project **simpelespelletjes** en dan links op **Project configuration** > **Environment variables**.
+2. Klik op **Add a variable** > **Add a single variable** en voeg deze twee toe (kies steeds **Same value for all deploy contexts**):
+
+   | Key | Value |
+   | --- | --- |
+   | `RESEND_API_KEY` | De sleutel uit stap B4 (vink **Contains secret values** aan) |
+   | `CONTACT_EMAIL_TO` | Het e-mailadres van je Resend-account (uit stap B1) |
+
+3. Klik op **Create variable**. Je hoeft nu niet opnieuw te publiceren; dat gebeurt vanzelf als je de nieuwe versie samenvoegt.
+
+### D. Samenvoegen en testen
+
+1. Voeg de pull request samen (**Merge pull request**). Netlify zet de nieuwe versie binnen een paar minuten online.
+2. Open je site, scroll helemaal naar beneden en tik op **Contact**. Stuur een testbericht.
+3. Kijk in je mailbox (ook in de map **Spam** of **Ongewenst**, de eerste keer). De mail komt van `onboarding@resend.dev`. Tik je op **Beantwoorden**, dan gaat je antwoord direct naar de bezoeker.
+4. In `/beheer` > **Berichten** staat het bericht ook. Zie je daar **niet gemaild**, dan klopt de sleutel of het e-mailadres in stap C niet. Pas het aan en kies daarna in Netlify **Deploys** > **Trigger deploy** > **Deploy site**.
+
+**Spambeveiliging:** dezelfde onzichtbare botcheck als bij Start spel, een verborgen valstrikveld voor bots, een minimale invultijd, maximaal 1.000 tekens en hooguit 3 berichten per 10 minuten (10 per dag) per bezoeker.
+
 ## Kosten en grenzen
 
 - **Netlify Free:** een vast maandelijks tegoed. Elke publicatie kost tegoed, daarom bouwt Netlify alleen de hoofdtak `main` (zie `netlify.toml`). Is het tegoed op, dan pauzeert de site tot de volgende maand; er komt geen rekening.
 - **Supabase Free:** 500 MB database, ruim genoeg voor tienduizenden vragen.
+- **Resend Free:** 3.000 mails per maand, 100 per dag. Alleen nodig voor e-mailmeldingen van het contactformulier.
 - Koppel nergens een creditcard, dan kan er nooit een rekening komen.
 
 ## Lukt iets niet?

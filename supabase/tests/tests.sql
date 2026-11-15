@@ -261,4 +261,52 @@ do $$ begin
 exception when insufficient_privilege then null; end $$;
 reset role;
 
+-- ---------------------------------------------------------------- contactberichten
+set role anon;
+select set_config('request.jwt.claims', '{"role":"anon"}', false);
+do $$ begin
+  perform 1 from contact_messages limit 1;
+  raise exception 'anon mag berichten niet lezen';
+exception when insufficient_privilege then null; end $$;
+do $$ begin
+  insert into contact_messages (name, email, message) values ('x', 'x@y.nl', 'spam');
+  raise exception 'anon mag niet zelf berichten wegschrijven';
+exception when insufficient_privilege then null; end $$;
+do $$ begin
+  perform save_contact_message('x', 'x@y.nl', '', 'spam', false);
+  raise exception 'anon mag save_contact_message niet aanroepen';
+exception when insufficient_privilege then null; end $$;
+reset role;
+
+set role service_role;
+select save_contact_message('  Jan  ', 'jan@voorbeeld.nl', '0612345678', 'Leuk spel!', true);
+select save_contact_message(repeat('n', 300), 'piet@voorbeeld.nl', null, repeat('m', 5000), false);
+reset role;
+select pg_temp.check((select count(*) from contact_messages) = 2, 'twee berichten opgeslagen');
+select pg_temp.check((select char_length(name) = 100 and char_length(message) = 1000 and phone = '' and not emailed
+  from contact_messages where email = 'piet@voorbeeld.nl'), 'te lange invoer wordt afgeknipt');
+select pg_temp.check((select name = 'Jan' and emailed and not is_read from contact_messages where email = 'jan@voorbeeld.nl'),
+  'naam opgeschoond, gemaild, nog ongelezen');
+
+-- admin zonder 2FA ziet niets
+set role authenticated;
+select set_config('request.jwt.claims', '{"role":"authenticated","aal":"aal1","app_metadata":{"role":"admin"}}', false);
+select pg_temp.check((select count(*) from contact_messages) = 0, 'admin zonder 2FA ziet geen berichten');
+delete from contact_messages;
+-- gewone gebruiker met 2FA ziet ook niets
+select set_config('request.jwt.claims', '{"role":"authenticated","aal":"aal2","app_metadata":{}}', false);
+select pg_temp.check((select count(*) from contact_messages) = 0, 'gewone gebruiker ziet geen berichten');
+-- admin met 2FA
+select set_config('request.jwt.claims', '{"role":"authenticated","aal":"aal2","app_metadata":{"role":"admin"}}', false);
+select pg_temp.check((select count(*) from contact_messages) = 2, 'admin met 2FA ziet berichten (en niets is verwijderd)');
+update contact_messages set is_read = true where email = 'jan@voorbeeld.nl';
+do $$ begin
+  update contact_messages set message = 'aangepast';
+  raise exception 'admin mag de tekst niet aanpassen';
+exception when insufficient_privilege then null; end $$;
+delete from contact_messages where email = 'piet@voorbeeld.nl';
+reset role;
+select pg_temp.check((select count(*) from contact_messages) = 1 and (select is_read from contact_messages),
+  'admin kan markeren als gelezen en verwijderen');
+
 \echo 'Alle databasetests geslaagd'

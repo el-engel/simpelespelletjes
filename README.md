@@ -4,6 +4,7 @@ Webapp voor simpele spelletjes om samen op één telefoon te spelen. Het eerste 
 
 - **Online zetten:** volg [SETUP.md](SETUP.md), stap voor stap en zonder programmeerkennis.
 - **Beheer:** `/beheer`, met inloggen plus 2FA (authenticator-app). Hier beheer je vragen (upload, zoeken, filteren, bewerken, (de)activeren, export), categorieën, soorten opdrachten en spelregels.
+- **Contact:** knop onderaan het beginscherm. Berichten staan in `/beheer` > Berichten en gaan optioneel per mail naar de beheerder via Resend (gratis).
 - **Uploadformaat:** kolommen `ID`, `vraag`, `categorieën`, `soort opdracht`, `minimum leeftijd`. Meerdere waarden scheid je met `;`. Een lege ID = nieuwe vraag, een ingevulde ID = bijwerken.
 
 ## Techniek
@@ -13,12 +14,13 @@ Webapp voor simpele spelletjes om samen op één telefoon te spelen. Het eerste 
 | App | SvelteKit 3 (Svelte 5, TypeScript) |
 | Hosting | Netlify (alleen `main` wordt gepubliceerd) |
 | Database en login | Supabase (Postgres met Row Level Security, Auth met TOTP-2FA) |
-| Botbeveiliging | Cloudflare Turnstile, ondertekend spel-token, rate limiting per IP |
+| Botbeveiliging | Cloudflare Turnstile, ondertekend spel-token, rate limiting per IP, valstrikveld bij contact |
+| E-mail (optioneel) | Resend, gratis tier (contactformulier) |
 
 Belangrijke mappen:
 
 ```
-src/routes/                 pagina's: hoofdmenu, /spel/[slug], /beheer, /api/spel
+src/routes/                 pagina's: hoofdmenu, /spel/[slug], /contact, /beheer, /api
 src/lib/games/registry.ts   lijst van spellen
 src/lib/games/raadspel/     het raadspel (Raadspel.svelte en logic.ts)
 src/lib/admin/              beheer: database-aanroepen, upload, export, filters
