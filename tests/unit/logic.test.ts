@@ -12,6 +12,7 @@ import {
 	playAgain,
 	remainingTurns,
 	setAge,
+	setCanSkip,
 	startTurn,
 	winners,
 	type GameState
@@ -29,7 +30,7 @@ function game(players: string[], perPlayer = 2, queueSize = 10): GameState {
 	return {
 		...newState(),
 		stage: 'turn',
-		players: players.map(makePlayer),
+		players: players.map((n) => makePlayer(n)),
 		perPlayer,
 		age: 8,
 		taskCodes: ['uitbeelden', 'tekenen'],
@@ -137,4 +138,14 @@ test('nog een keer zet scores en beurten op nul', () => {
 	s = playAgain(s);
 	assert.ok(s.players.every((p) => p.score === 0 && p.turns === 0));
 	assert.equal(s.stage, 'turn');
+});
+
+test('vragen overslaan: per speler aan en uit, ook bij toevoegen', () => {
+	let s: GameState = { ...newState(), stage: 'turn', players: [makePlayer('Kim', true), makePlayer('Papa')] };
+	assert.equal(s.players[0].canSkip, true);
+	assert.equal(s.players[1].canSkip, false);
+	s = setCanSkip(s, s.players[1].id, true);
+	assert.equal(s.players[1].canSkip, true);
+	s = addPlayer(s, 'Oma', true);
+	assert.equal(s.players[2].canSkip, true);
 });
