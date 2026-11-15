@@ -228,7 +228,7 @@
 		align-items: center;
 		gap: 8px;
 		padding: 28px;
-		border: 2px dashed #d6d3d1;
+		border: 2px dashed var(--line);
 		border-radius: var(--radius);
 		cursor: pointer;
 		text-align: center;
@@ -236,7 +236,7 @@
 	}
 	.drop.dragging {
 		border-color: var(--brand);
-		background: #fff7ed;
+		background: var(--surface-2);
 	}
 	.tablewrap {
 		overflow: auto;
@@ -257,10 +257,10 @@
 	th {
 		position: sticky;
 		top: 0;
-		background: #fafaf9;
+		background: var(--surface-2);
 	}
 	tr.fout td {
-		background: #fef2f2;
+		background: rgb(255 59 92 / 0.15);
 	}
 	.mono {
 		font-family: ui-monospace, monospace;

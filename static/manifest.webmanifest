@@ -3,8 +3,8 @@
 	"short_name": "Spelletjes",
 	"start_url": "/",
 	"display": "standalone",
-	"background_color": "#fff7ed",
-	"theme_color": "#f97316",
+	"background_color": "#07051a",
+	"theme_color": "#07051a",
 	"lang": "nl",
 	"icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
 }

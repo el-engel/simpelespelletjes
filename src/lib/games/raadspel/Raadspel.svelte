@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import type { GameProps } from '../registry';
 	import type { DrawnQuestion } from '#lib/types.ts';
+	import { toTop } from '#lib/scroll.ts';
 	import Scoreboard from './Scoreboard.svelte';
 	import {
 		MAX_PER_PLAYER,
@@ -71,6 +72,12 @@
 			/* negeren */
 		}
 		if (game.stage !== 'setup') topUp();
+	});
+
+	// Elk nieuw scherm in het spel begint bovenaan.
+	$effect(() => {
+		void game.stage;
+		toTop();
 	});
 
 	$effect(() => {
@@ -261,6 +268,7 @@
 	{#if game.stage === 'setup'}
 		<a class="btn-link" href="/">← Alle spelletjes</a>
 		<h1>{start.game.name}</h1>
+		<p class="kicker">Stel je spel in</p>
 
 		<section class="card stack">
 			<div class="field">
@@ -388,7 +396,7 @@
 				</p>
 			{/if}
 			<section class="turn">
-				<p class="label">Aan de beurt:</p>
+				<p class="label">Aan de beurt</p>
 				<p class="who" data-testid="aan-de-beurt">{upcoming?.name ?? ''}</p>
 				<button class="btn btn-orange btn-big" onclick={showTaskType} disabled={loading}>
 					Laat soort opdracht zien
@@ -397,7 +405,7 @@
 			<Scoreboard players={game.players} perPlayer={game.perPlayer} />
 		{:else if game.stage === 'type' && game.current}
 			<section class="turn">
-				<p class="label">{currentPlayer}, jouw opdracht is:</p>
+				<p class="label">{currentPlayer}, jouw opdracht is</p>
 				<p class="task" data-testid="soort">{taskName(game.current.taskCode)}</p>
 				<button class="btn btn-red btn-big" onclick={() => (game = { ...game, stage: 'question' })}>
 					Laat vraag zien
@@ -405,7 +413,7 @@
 			</section>
 		{:else if game.stage === 'question' && game.current}
 			<section class="turn">
-				<p class="task-small">{taskName(game.current.taskCode)}</p>
+				<p class="pill">{taskName(game.current.taskCode)}</p>
 				<p class="question" data-testid="vraag">{game.current.question.text}</p>
 				<p class="muted small">Leg de telefoon omgekeerd neer en begin!</p>
 				<button class="btn btn-green btn-big" onclick={() => (game = { ...game, stage: 'guess' })}>Klaar!</button>
@@ -451,54 +459,81 @@
 	.game {
 		padding-bottom: 48px;
 	}
+	.game > h1 {
+		font-size: 2.2rem;
+		margin-top: 8px;
+	}
+	.kicker,
+	.label {
+		margin: 0;
+		font-weight: 700;
+		letter-spacing: 0.25em;
+		text-transform: uppercase;
+		color: var(--cyan);
+		font-size: 0.9rem;
+	}
+	.kicker {
+		margin-top: -8px;
+	}
 	.estimate {
-		margin: 4px 0 0;
-		font-weight: 600;
-		color: var(--brand-dark);
+		margin: 6px 0 0;
+		font-weight: 700;
+		color: var(--lime);
 	}
 	.topbar {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
 	}
+	.topbar .muted {
+		font-family: var(--font-display);
+		letter-spacing: 0.05em;
+	}
 	.turn {
 		display: flex;
 		flex-direction: column;
 		align-items: center;
 		text-align: center;
-		gap: 16px;
-		padding: 24px 0;
-	}
-	.label {
-		margin: 0;
-		font-size: 1.1rem;
-		color: var(--muted);
+		gap: 18px;
+		padding: 40px 0 24px;
+		min-height: 52dvh;
+		justify-content: center;
 	}
 	.who {
 		margin: 0;
-		font-size: 2.5rem;
-		font-weight: 800;
+		font-family: var(--font-display);
+		font-size: clamp(2.4rem, 14vw, 3.6rem);
+		line-height: 1.05;
+		color: var(--pink);
+		text-shadow: var(--glow-pink);
 		word-break: break-word;
 	}
 	.task {
 		margin: 0;
-		font-size: 3rem;
-		font-weight: 800;
-		color: var(--brand-dark);
+		font-family: var(--font-display);
+		font-size: clamp(2.2rem, 12vw, 3.2rem);
+		line-height: 1.05;
+		color: var(--lime);
+		text-shadow: var(--glow-lime);
+		word-break: break-word;
 	}
-	.task-small {
+	.pill {
 		margin: 0;
-		font-size: 1.4rem;
-		font-weight: 700;
-		color: var(--brand-dark);
+		padding: 6px 18px;
+		border: 2px solid var(--lime);
+		border-radius: 999px;
+		font-family: var(--font-display);
+		font-size: 1.1rem;
+		color: var(--lime);
 		text-transform: uppercase;
-		letter-spacing: 0.05em;
 	}
 	.question {
 		margin: 0;
-		font-size: 2.4rem;
-		font-weight: 800;
-		line-height: 1.2;
+		font-family: var(--font-display);
+		font-size: clamp(1.8rem, 9vw, 2.6rem);
+		line-height: 1.15;
+		color: var(--text);
+		text-shadow: 0 0 16px rgb(92 242 255 / 0.8);
 		word-break: break-word;
 	}
 	.guessers {
@@ -507,13 +542,20 @@
 	}
 	.end {
 		text-align: center;
+		border-color: var(--yellow);
+		box-shadow: 0 0 30px rgb(255 210 63 / 0.4);
 	}
 	.winner {
-		font-size: 2.5rem;
-		color: var(--brand-dark);
+		font-size: clamp(2.2rem, 12vw, 3rem);
+		color: var(--yellow);
+		text-shadow: 0 0 24px rgb(255 210 63 / 0.8);
 		margin: 0;
+		word-break: break-word;
+		animation: pulse 1.6s ease-in-out infinite;
 	}
-	h2 {
-		font-size: 1.2rem;
+	@keyframes pulse {
+		50% {
+			transform: scale(1.06);
+		}
 	}
 </style>

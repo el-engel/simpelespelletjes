@@ -92,7 +92,7 @@ Houd een leeg tekstbestand of notitie open. Daarin plak je onderweg zes waarden.
    - Klik op **Install** of **Save**.
 4. Kies de repo **simpelespelletjes** in de lijst.
 5. Netlify vult de bouwinstellingen zelf in uit het bestand `netlify.toml`. Verander niets.
-6. Klik op **Add environment variables** (of later via **Project configuration** > **Environment variables** > **Add a variable**) en voeg deze zeven toe. Kies bij elke variabele **Same value for all deploy contexts**:
+6. Klik op **Add environment variables** (of later via **Project configuration** > **Environment variables** > **Add a variable**) en voeg deze zes toe. Kies bij elke variabele **Same value for all deploy contexts**:
 
    | Key | Value |
    | --- | --- |

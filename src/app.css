@@ -1,27 +1,36 @@
+/* Stijl "Arcade neon": donker, felle neonkleuren, grote knoppen. */
+@import '@fontsource/bungee/latin-400.css';
+@import '@fontsource-variable/outfit/wght.css';
+
 :root {
-	--bg: #fff7ed;
-	--surface: #ffffff;
-	--text: #1c1917;
-	--muted: #57534e;
-	--line: #e7e5e4;
-	--brand: #f97316;
-	--brand-dark: #c2410c;
-	--orange: #f97316;
-	--red: #dc2626;
-	--green: #16a34a;
-	--blue: #2563eb;
-	--focus: #2563eb;
-	--radius: 14px;
-	--shadow: 0 1px 2px rgb(0 0 0 / 0.06), 0 4px 16px rgb(0 0 0 / 0.06);
-	color-scheme: light;
-	font-family:
-		system-ui,
-		-apple-system,
-		'Segoe UI',
-		Roboto,
-		'Helvetica Neue',
-		Arial,
-		sans-serif;
+	--bg: #07051a;
+	--grid: #1b1450;
+	--surface: #140c38;
+	--surface-2: #1d1250;
+	--input: #0c0726;
+	--text: #f4f1ff;
+	--muted: #b3aade;
+	--line: #34277a;
+	--cyan: #5cf2ff;
+	--pink: #ff3ea5;
+	--lime: #c6ff3d;
+	--yellow: #ffd23f;
+	--orange: #ff8a1f;
+	--red: #ff3b5c;
+	--brand: var(--cyan);
+	--brand-dark: var(--cyan);
+	--on-neon: #07051a;
+	--focus: #ffd23f;
+	--radius: 18px;
+	--shadow: 0 0 0 1px var(--line);
+	--glow-cyan: 0 0 22px rgb(92 242 255 / 0.35);
+	--glow-pink: 0 0 22px rgb(255 62 165 / 0.6);
+	--glow-lime: 0 0 22px rgb(198 255 61 / 0.5);
+	--font-display: 'Bungee', 'Arial Black', system-ui, sans-serif;
+	--font-body: 'Outfit Variable', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+	color-scheme: dark;
+	font-family: var(--font-body);
+	font-size: 17px;
 	line-height: 1.5;
 	color: var(--text);
 	background: var(--bg);
@@ -35,23 +44,41 @@
 body {
 	margin: 0;
 	min-height: 100dvh;
-	background: var(--bg);
+	background-color: var(--bg);
+	background-image:
+		linear-gradient(var(--grid) 1px, transparent 1px),
+		linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+	background-size: 36px 36px;
+	background-attachment: fixed;
 }
 
 h1,
 h2,
 h3 {
-	line-height: 1.2;
+	font-family: var(--font-display);
+	font-weight: 400;
+	line-height: 1.15;
 	margin: 0 0 0.5em;
+	letter-spacing: 0.02em;
+}
+
+h1 {
+	color: var(--pink);
+	text-shadow: var(--glow-pink);
+}
+
+h2 {
+	color: var(--lime);
+	font-size: 1.25rem;
 }
 
 a {
-	color: var(--brand-dark);
+	color: var(--cyan);
 }
 
 :focus-visible {
 	outline: 3px solid var(--focus);
-	outline-offset: 2px;
+	outline-offset: 3px;
 }
 
 .container {
@@ -66,9 +93,14 @@ a {
 
 .card {
 	background: var(--surface);
+	border: 2px solid var(--line);
 	border-radius: var(--radius);
-	box-shadow: var(--shadow);
 	padding: 20px;
+}
+
+.card-neon {
+	border-color: var(--cyan);
+	box-shadow: var(--glow-cyan);
 }
 
 .stack > * + * {
@@ -90,6 +122,11 @@ a {
 	font-size: 0.875rem;
 }
 
+.display {
+	font-family: var(--font-display);
+	font-weight: 400;
+}
+
 .btn {
 	display: inline-flex;
 	align-items: center;
@@ -97,66 +134,93 @@ a {
 	gap: 8px;
 	min-height: 44px;
 	padding: 10px 18px;
-	border-radius: 12px;
-	border: 1px solid var(--line);
-	background: var(--surface);
+	border-radius: 14px;
+	border: 2px solid var(--line);
+	background: var(--surface-2);
 	color: var(--text);
 	font: inherit;
-	font-weight: 600;
+	font-weight: 700;
 	cursor: pointer;
 	text-decoration: none;
+	transition:
+		transform 0.08s ease,
+		box-shadow 0.15s ease,
+		filter 0.15s ease;
+}
+
+.btn:hover:not(:disabled) {
+	filter: brightness(1.12);
+}
+
+.btn:active:not(:disabled) {
+	transform: translateY(2px) scale(0.98);
 }
 
 .btn:disabled {
-	opacity: 0.5;
+	opacity: 0.45;
 	cursor: not-allowed;
 }
 
-.btn-primary {
-	background: var(--brand);
-	border-color: var(--brand);
-	color: #fff;
+.btn-primary,
+.btn-green {
+	background: var(--lime);
+	border-color: var(--lime);
+	color: var(--on-neon);
+	box-shadow: var(--glow-lime);
 }
 
 .btn-orange {
 	background: var(--orange);
 	border-color: var(--orange);
-	color: #fff;
+	color: var(--on-neon);
+	box-shadow: 0 0 22px rgb(255 138 31 / 0.55);
 }
 
 .btn-red {
 	background: var(--red);
 	border-color: var(--red);
 	color: #fff;
-}
-
-.btn-green {
-	background: var(--green);
-	border-color: var(--green);
-	color: #fff;
+	box-shadow: 0 0 22px rgb(255 59 92 / 0.6);
 }
 
 .btn-big {
 	width: 100%;
-	min-height: 64px;
-	font-size: 1.25rem;
+	min-height: 68px;
+	font-family: var(--font-display);
+	font-weight: 400;
+	font-size: 1.2rem;
+	letter-spacing: 0.03em;
+	text-transform: uppercase;
 	border-radius: 16px;
 }
 
+/* Grote knoppen zonder neonkleur (bijv. spelers aantikken) blijven goed leesbaar. */
+.btn-big:not(.btn-primary, .btn-green, .btn-orange, .btn-red, .btn-link) {
+	font-family: var(--font-body);
+	font-weight: 700;
+	font-size: 1.3rem;
+	text-transform: none;
+	letter-spacing: 0;
+	border-color: var(--cyan);
+}
+
 .btn-small {
-	min-height: 34px;
-	padding: 4px 10px;
+	min-height: 36px;
+	padding: 4px 12px;
 	font-size: 0.875rem;
 }
 
 .btn-link {
 	background: none;
 	border: none;
-	color: var(--brand-dark);
+	box-shadow: none;
+	color: var(--cyan);
+	font: inherit;
+	font-weight: 600;
 	text-decoration: underline;
+	cursor: pointer;
 	padding: 4px;
 	min-height: 0;
-	font-weight: 500;
 }
 
 label {
@@ -172,12 +236,25 @@ select,
 textarea {
 	font: inherit;
 	width: 100%;
-	min-height: 44px;
-	padding: 8px 12px;
-	border-radius: 10px;
-	border: 1px solid #d6d3d1;
-	background: #fff;
+	min-height: 48px;
+	padding: 8px 14px;
+	border-radius: 12px;
+	border: 2px solid var(--line);
+	background: var(--input);
 	color: var(--text);
+}
+
+input::placeholder,
+textarea::placeholder {
+	color: #7d73b3;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+	border-color: var(--cyan);
+	box-shadow: var(--glow-cyan);
+	outline: none;
 }
 
 textarea {
@@ -194,43 +271,43 @@ textarea {
 .check {
 	display: flex;
 	align-items: center;
-	gap: 10px;
+	gap: 12px;
 	font-weight: 500;
-	min-height: 40px;
+	min-height: 44px;
 }
 
 .check input {
-	width: 22px;
-	height: 22px;
-	accent-color: var(--brand);
+	width: 24px;
+	height: 24px;
+	accent-color: var(--lime);
 }
 
 .check.disabled {
 	color: var(--muted);
 }
 
-.error {
-	background: #fef2f2;
-	color: #991b1b;
-	border: 1px solid #fecaca;
-	border-radius: 10px;
+.error,
+.notice,
+.success {
+	border-radius: 12px;
 	padding: 10px 14px;
+	border: 2px solid;
+	background: var(--surface);
+}
+
+.error {
+	color: #ffb3c1;
+	border-color: var(--red);
 }
 
 .notice {
-	background: #eff6ff;
-	color: #1e3a8a;
-	border: 1px solid #bfdbfe;
-	border-radius: 10px;
-	padding: 10px 14px;
+	color: #c9fbff;
+	border-color: var(--cyan);
 }
 
 .success {
-	background: #f0fdf4;
-	color: #166534;
-	border: 1px solid #bbf7d0;
-	border-radius: 10px;
-	padding: 10px 14px;
+	color: #e6ffb3;
+	border-color: var(--lime);
 }
 
 .prose :first-child {
@@ -239,6 +316,16 @@ textarea {
 
 .prose li + li {
 	margin-top: 4px;
+}
+
+.prose h1,
+.prose h2,
+.prose h3 {
+	margin-top: 1em;
+}
+
+.prose strong {
+	color: var(--yellow);
 }
 
 .sr-only {
@@ -257,17 +344,24 @@ textarea {
 	padding: 2px 8px;
 	border-radius: 999px;
 	font-size: 0.8rem;
-	font-weight: 600;
-	background: #f5f5f4;
+	font-weight: 700;
+	background: var(--surface-2);
 	color: var(--muted);
 }
 
 .badge-on {
-	background: #dcfce7;
-	color: #166534;
+	background: rgb(198 255 61 / 0.15);
+	color: var(--lime);
 }
 
 .badge-adult {
-	background: #fee2e2;
-	color: #991b1b;
+	background: rgb(255 59 92 / 0.18);
+	color: #ff9fb2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	* {
+		transition: none !important;
+		animation: none !important;
+	}
 }
