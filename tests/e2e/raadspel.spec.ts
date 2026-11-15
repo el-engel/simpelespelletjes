@@ -30,7 +30,7 @@ test('hele spel: uitleg, invoer, beurten, score en winnaar', async ({ page }) =>
 	// Beurt 1: Lisa
 	await expect(page.getByTestId('aan-de-beurt')).toHaveText('Lisa');
 	await page.getByRole('button', { name: 'Laat soort opdracht zien' }).click();
-	await expect(page.getByTestId('soort')).toHaveText(/Uitbeelden|Tekenen|Beschrijven|Vragen beantwoorden/);
+	await expect(page.getByTestId('soort')).toHaveText(/Uitbeelden|Tekenen|Beschrijven|Raden \(ja of nee\)/);
 	await page.getByRole('button', { name: 'Laat vraag zien' }).click();
 	await expect(page.getByTestId('vraag')).not.toBeEmpty();
 	await page.getByRole('button', { name: 'Klaar!' }).click();

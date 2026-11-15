@@ -142,19 +142,19 @@
 		<section class="card stack">
 			<h2>Soorten opdrachten</h2>
 			<p class="small muted">De code wordt gebruikt bij uploaden (naast de naam). Wijzig de code liever niet.</p>
-			<table>
+			<table class="stacked tt">
 				<thead><tr><th>Naam</th><th>Code</th><th>Volgorde</th><th>Actief</th></tr></thead>
 				<tbody>
 					{#each taskTypes as t (t.id)}
 						<tr>
-							<td>
+							<td class="tname">
 								<input type="text" maxlength="60" value={t.name} aria-label="Naam soort" onchange={(e) => e.currentTarget.value.trim() && updateTt(t, { name: e.currentTarget.value.trim() })} />
 							</td>
-							<td class="mono">{t.code}</td>
-							<td>
+							<td class="mono" data-label="Code">{t.code}</td>
+							<td data-label="Volgorde">
 								<input type="number" class="short" value={t.sort_order} aria-label="Volgorde" onchange={(e) => updateTt(t, { sort_order: Number(e.currentTarget.value) || 0 })} />
 							</td>
-							<td>
+							<td data-label="Actief">
 								<input type="checkbox" checked={t.active} aria-label="Actief {t.name}" onchange={(e) => updateTt(t, { active: e.currentTarget.checked })} />
 							</td>
 						</tr>
@@ -206,5 +206,30 @@
 	}
 	.mono {
 		font-family: ui-monospace, monospace;
+	}
+	@media (max-width: 700px) {
+		.cols {
+			grid-template-columns: 1fr;
+		}
+		/* Soort: naam over de hele breedte, daaronder code, volgorde en actief naast elkaar. */
+		.tt tr {
+			display: grid;
+			grid-template-columns: 1fr auto auto;
+			gap: 0 12px;
+			padding: 10px 0;
+		}
+		.tt td {
+			width: auto;
+		}
+		.tt .tname {
+			grid-column: 1 / -1;
+		}
+		.tt td input[type='text'] {
+			min-height: 44px;
+		}
+		td input[type='checkbox'] {
+			width: 24px;
+			height: 24px;
+		}
 	}
 </style>

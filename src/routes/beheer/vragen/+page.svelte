@@ -346,11 +346,34 @@
 		<button class="btn btn-small" onclick={() => doExport('csv')}>Export CSV</button>
 	</div>
 
+	<div class="field mobile-sort">
+		<label for="sorteer">Sorteren op</label>
+		<select
+			id="sorteer"
+			value={`${sortKey}:${asc ? 'op' : 'af'}`}
+			onchange={(e) => {
+				const [k, dir] = e.currentTarget.value.split(':');
+				sortKey = k as SortKey;
+				asc = dir === 'op';
+			}}
+		>
+			<option value="created_at:af">Nieuwste eerst</option>
+			<option value="created_at:op">Oudste eerst</option>
+			<option value="public_id:op">ID</option>
+			<option value="text:op">Vraag (A-Z)</option>
+			<option value="categories:op">Categorie (A-Z)</option>
+			<option value="taskTypes:op">Soort opdracht (A-Z)</option>
+			<option value="min_age:op">Leeftijd (laag-hoog)</option>
+			<option value="min_age:af">Leeftijd (hoog-laag)</option>
+			<option value="active:op">Uit eerst</option>
+		</select>
+	</div>
+
 	{#if loading}
 		<p class="muted">Vragen laden…</p>
 	{:else}
 		<div class="tablewrap">
-			<table>
+			<table class="stacked">
 				<thead>
 					<tr>
 						<th class="sel">
@@ -394,7 +417,7 @@
 								</td>
 							</tr>
 						{:else}
-							<tr class:inactive={!r.active}>
+							<tr class="qrow" class:inactive={!r.active}>
 								<td class="sel">
 									<input
 										type="checkbox"
@@ -403,21 +426,21 @@
 										onchange={(e) => (e.currentTarget.checked ? selected.add(r.id) : selected.delete(r.id))}
 									/>
 								</td>
-								<td class="mono">{r.public_id}</td>
-								<td class="click" ondblclick={() => startEdit(r)}>{r.text}</td>
-								<td class="click" ondblclick={() => startEdit(r)}>
+								<td class="mono id">{r.public_id}</td>
+								<td class="click text" ondblclick={() => startEdit(r)}>{r.text}</td>
+								<td class="click cats" data-label="Categorieën" ondblclick={() => startEdit(r)}>
 									{r.categoryNames}
 									{#if r.adult}<span class="badge badge-adult">18+</span>{/if}
 								</td>
-								<td class="click" ondblclick={() => startEdit(r)}>{r.taskTypeNames}</td>
-								<td class="num click" ondblclick={() => startEdit(r)}>{r.min_age}</td>
-								<td>
+								<td class="click types" data-label="Soort opdracht" ondblclick={() => startEdit(r)}>{r.taskTypeNames}</td>
+								<td class="num click age" data-label="Min. leeftijd" ondblclick={() => startEdit(r)}>{r.min_age}</td>
+								<td class="act">
 									<label class="switch">
 										<input type="checkbox" checked={r.active} onchange={() => toggleActive(r)} aria-label="Actief {r.public_id}" />
 										<span>{r.active ? 'aan' : 'uit'}</span>
 									</label>
 								</td>
-								<td><button class="btn btn-small" onclick={() => startEdit(r)}>Bewerken</button></td>
+								<td class="edit"><button class="btn btn-small" onclick={() => startEdit(r)}>Bewerken</button></td>
 							</tr>
 						{/if}
 					{:else}
@@ -434,7 +457,7 @@
 				<button class="btn btn-small" disabled={pageNo >= pages - 1} onclick={() => pageNo++}>Volgende</button>
 			</div>
 		{/if}
-		<p class="muted small">Tip: dubbelklik op een cel om de vraag te bewerken.</p>
+		<p class="muted small desktop-only">Tip: dubbelklik op een cel om de vraag te bewerken.</p>
 	{/if}
 </main>
 
@@ -465,6 +488,7 @@
 		gap: 10px;
 	}
 	.tablewrap {
+		position: relative;
 		overflow-x: auto;
 		background: var(--surface);
 		border-radius: var(--radius);
@@ -530,5 +554,87 @@
 	}
 	.pager {
 		justify-content: center;
+	}
+	.mobile-sort {
+		display: none;
+	}
+
+	/* Telefoon: elke vraag als kaartje. */
+	@media (max-width: 700px) {
+		.mobile-sort {
+			display: flex;
+		}
+		.desktop-only {
+			display: none;
+		}
+		.head h1 {
+			flex: 1;
+		}
+		.toolbar .spacer {
+			display: none;
+		}
+		table {
+			font-size: 1rem;
+		}
+		tr.qrow {
+			display: grid;
+			grid-template-columns: auto 1fr auto;
+			grid-template-areas:
+				'sel id act'
+				'text text text'
+				'cats cats cats'
+				'types types age'
+				'edit edit edit';
+			column-gap: 10px;
+			align-items: center;
+		}
+		tr.qrow > td {
+			width: auto;
+		}
+		tr.qrow > .sel {
+			grid-area: sel;
+		}
+		tr.qrow > .sel input {
+			width: 24px;
+			height: 24px;
+		}
+		tr.qrow > .id {
+			grid-area: id;
+			font-size: 0.85rem;
+			color: var(--muted);
+		}
+		tr.qrow > .act {
+			grid-area: act;
+		}
+		tr.qrow > .text {
+			grid-area: text;
+			font-weight: 600;
+			font-size: 1.1rem;
+		}
+		tr.qrow > .cats {
+			grid-area: cats;
+		}
+		tr.qrow > .types {
+			grid-area: types;
+		}
+		tr.qrow > .age {
+			grid-area: age;
+			text-align: right;
+		}
+		tr.qrow > .edit {
+			grid-area: edit;
+			padding-top: 6px;
+		}
+		tr.qrow > .edit .btn {
+			width: 100%;
+			min-height: 44px;
+		}
+		.switch input {
+			width: 22px;
+			height: 22px;
+		}
+		tr.editing > td {
+			padding: 12px;
+		}
 	}
 </style>

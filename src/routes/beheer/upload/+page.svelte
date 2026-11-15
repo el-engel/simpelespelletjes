@@ -173,15 +173,15 @@
 				</label>
 			{/if}
 			<div class="tablewrap">
-				<table>
+				<table class="stacked">
 					<thead>
 						<tr><th>Rij</th><th>Status</th><th>ID</th><th>Vraag</th><th>Categorieën</th><th>Soort</th><th>Leeftijd</th></tr>
 					</thead>
 					<tbody>
 						{#each shown as r (r.row)}
 							<tr class={r.status}>
-								<td>{r.row}</td>
-								<td>
+								<td class="rownr"><span class="phone">Rij&nbsp;</span>{r.row}</td>
+								<td data-label="Status">
 									{#if r.status === 'fout'}
 										<strong>Fout:</strong> {r.problems.join('; ')}
 									{:else if blocked(r)}
@@ -190,13 +190,13 @@
 										{r.status}
 									{/if}
 								</td>
-								<td class="mono">{r.id ?? ''}</td>
-								<td>{r.text}</td>
-								<td>
+								<td class="mono" data-label="ID">{r.id ?? ''}</td>
+								<td class="text" data-label="Vraag">{r.text}</td>
+								<td data-label="Categorieën">
 									{#each r.categories as c, i (c)}{i ? ', ' : ''}{#if r.newCategories.includes(c)}<em>{c} (nieuw)</em>{:else}{c}{/if}{/each}
 								</td>
-								<td>{r.task_types.join(', ')}</td>
-								<td>{r.min_age}</td>
+								<td data-label="Soort">{r.task_types.join(', ')}</td>
+								<td data-label="Leeftijd">{r.min_age}</td>
 							</tr>
 						{/each}
 					</tbody>
@@ -239,6 +239,7 @@
 		background: var(--surface-2);
 	}
 	.tablewrap {
+		position: relative;
 		overflow: auto;
 		max-height: 60vh;
 	}
@@ -264,5 +265,21 @@
 	}
 	.mono {
 		font-family: ui-monospace, monospace;
+	}
+	@media (min-width: 701px) {
+		.phone {
+			display: none;
+		}
+	}
+	@media (max-width: 700px) {
+		.drop {
+			padding: 20px 12px;
+		}
+		.rownr {
+			font-weight: 700;
+		}
+		.text {
+			font-weight: 600;
+		}
 	}
 </style>

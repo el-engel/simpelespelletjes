@@ -135,17 +135,17 @@
 		</section>
 	{/if}
 
-	<section class="card">
-		<table>
+	<section class="card games">
+		<table class="stacked">
 			<thead><tr><th>Naam</th><th>Slug</th><th>Min/vraag</th><th>ID</th><th>In menu</th><th></th></tr></thead>
 			<tbody>
 				{#each games as g (g.id)}
 					<tr>
 						<td><strong>{g.name}</strong><br /><span class="small muted">{g.description}</span></td>
-						<td class="mono">{g.slug}</td>
-						<td>{g.minutes_per_question}</td>
-						<td class="mono">{g.id_prefix}-…</td>
-						<td>{#if g.active}<span class="badge badge-on">aan</span>{:else}<span class="badge">uit</span>{/if}</td>
+						<td class="mono" data-label="Slug (in de link)">{g.slug}</td>
+						<td data-label="Minuten per vraag">{g.minutes_per_question}</td>
+						<td class="mono" data-label="Vraag-ID">{g.id_prefix}-…</td>
+						<td data-label="In menu">{#if g.active}<span class="badge badge-on">aan</span>{:else}<span class="badge">uit</span>{/if}</td>
 						<td><button class="btn btn-small" onclick={() => edit(g)}>Bewerken</button></td>
 					</tr>
 				{/each}
@@ -185,5 +185,15 @@
 	}
 	.mono {
 		font-family: ui-monospace, monospace;
+	}
+	@media (max-width: 700px) {
+		.games {
+			padding: 4px 8px;
+		}
+		td .btn {
+			width: 100%;
+			min-height: 44px;
+			margin-top: 6px;
+		}
 	}
 </style>

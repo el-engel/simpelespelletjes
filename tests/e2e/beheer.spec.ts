@@ -86,7 +86,7 @@ function freshDb(): Db {
 		],
 		taskTypes: [
 			{ id: 't1', game_id: GAME, code: 'uitbeelden', name: 'Uitbeelden', active: true, sort_order: 1 },
-			{ id: 't2', game_id: GAME, code: 'vragen', name: 'Vragen beantwoorden', active: true, sort_order: 2 },
+			{ id: 't2', game_id: GAME, code: 'vragen', name: 'Raden (ja of nee)', active: true, sort_order: 2 },
 			{ id: 't3', game_id: GAME, code: 'tekenen', name: 'Tekenen', active: true, sort_order: 4 }
 		],
 		questions: [
@@ -94,7 +94,7 @@ function freshDb(): Db {
 			q(2, 'Pindarotsje', ['c2'], ['t1', 't3'], 6),
 			q(3, 'Kangoeroe', ['c1'], ['t1'], 5),
 			q(4, 'Stiekem zoenen', ['c3'], ['t1'], 18),
-			q(5, 'Hoeveel poten heeft een spin? (8)', ['c1'], ['t2'], 6, false)
+			q(5, 'Spin', ['c1'], ['t2'], 6, false)
 		]
 	};
 }
@@ -331,7 +331,7 @@ test('zoeken, filteren, sorteren en bewerken op rijniveau', async ({ page }) => 
 
 	// Sorteren op vraag (A-Z)
 	await page.getByRole('button', { name: /^Vraag/ }).click();
-	await expect(page.locator('tbody tr').first()).toContainText('Hoeveel poten');
+	await expect(page.locator('tbody tr').first()).toContainText('Kangoeroe');
 
 	// Bewerken op rijniveau (dubbelklik op een cel)
 	await page.getByRole('cell', { name: 'Kangoeroe' }).dblclick();
@@ -535,4 +535,24 @@ test('berichten: lezen, markeren als gelezen en verwijderen', async ({ page }) =
 	await expect(page.getByText('Bericht van Piet is verwijderd.')).toBeVisible();
 	await expect(page.getByTestId('telling')).toHaveText('1 van 1 berichten · 0 ongelezen');
 	expect(db.messages.map((m) => m.id)).toEqual(['m2']);
+});
+
+test.describe('op de telefoon', () => {
+	test.use({ viewport: { width: 375, height: 740 }, isMobile: true, hasTouch: true });
+
+	test('geen enkele beheerpagina is breder dan het scherm, tabellen worden kaartjes', async ({ page }) => {
+		const db = freshDb();
+		await loginAsAdmin(page, db);
+		const width = () => page.evaluate(() => document.documentElement.scrollWidth);
+		expect(await width()).toBeLessThanOrEqual(375);
+		// vraag als kaartje: geen kolomkoppen, wel een Bewerken-knop die je kunt aantikken
+		await expect(page.locator('thead')).toBeHidden();
+		await page.getByRole('button', { name: 'Bewerken' }).first().click();
+		await expect(page.getByText('RS-00005 bewerken')).toBeVisible();
+		for (const p of ['upload', 'categorieen', 'spellen', 'feedback', 'statistieken', 'berichten']) {
+			await page.goto(`/beheer/${p}`);
+			await page.waitForLoadState('networkidle');
+			expect(await width(), p).toBeLessThanOrEqual(375);
+		}
+	});
 });

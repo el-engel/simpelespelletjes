@@ -366,3 +366,56 @@ textarea {
 		animation: none !important;
 	}
 }
+
+/* ---------- Telefoon: tabellen als kaartjes ----------
+   Geef een tabel class="stacked" en elke cel data-label="Kolomnaam".
+   Op een smal scherm wordt elke rij dan een los kaartje met "Kolom: waarde",
+   zodat je nooit opzij hoeft te schuiven of uit te zoomen. */
+@media (max-width: 700px) {
+	table.stacked,
+	table.stacked > tbody,
+	table.stacked > tbody > tr,
+	table.stacked > tbody > tr > td {
+		display: block;
+		width: 100%;
+	}
+	table.stacked > thead {
+		display: none;
+	}
+	table.stacked > tbody > tr {
+		padding: 10px 12px;
+		border-bottom: 1px solid var(--line);
+	}
+	table.stacked > tbody > tr > td {
+		border: none;
+		padding: 3px 0;
+		text-align: left;
+	}
+	table.stacked > tbody > tr > td[data-label]:not([data-label=''])::before {
+		content: attr(data-label);
+		display: block;
+		font-size: 0.8rem;
+		font-weight: 600;
+		color: var(--muted);
+	}
+	table.stacked > tbody > tr > td:empty {
+		display: none;
+	}
+	/* Invoervelden onder 16px laten iPhones automatisch inzoomen. */
+	input,
+	select,
+	textarea {
+		font-size: max(16px, 1em) !important;
+	}
+}
+
+input[type='file'] {
+	font: inherit;
+	max-width: 100%;
+}
+
+/* Lange woorden in koppen (bijv. TWEESTAPSVERIFICATIE) breken af in plaats van het scherm te verbreden. */
+h1,
+h2 {
+	overflow-wrap: break-word;
+}
