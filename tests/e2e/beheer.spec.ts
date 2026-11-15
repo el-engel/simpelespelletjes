@@ -38,6 +38,7 @@ interface Db {
 	}[];
 	calls: { method: string; path: string; body: unknown }[];
 	admin: boolean;
+	stats: Record<string, unknown>[];
 }
 
 function freshDb(): Db {
@@ -56,6 +57,23 @@ function freshDb(): Db {
 		factors: [],
 		admin: true,
 		calls: [],
+		stats: [
+			{
+				id: 'q2', public_id: 'RS-00002', text: 'Pindarotsje', min_age: 6, active: true,
+				plays: 10, guessed: 2, not_guessed: 5, swapped: 3, reports: 4, te_moeilijk: 3, leeftijd: 1, niet_leuk: 0,
+				prima: 1, dismissed: 0, last_report: '2026-11-15T10:00:00Z',
+				by_age: {
+					'7-9': { plays: 6, guessed: 0, not_guessed: 3, swapped: 3, reports: 4 },
+					'18+': { plays: 4, guessed: 2, not_guessed: 2, swapped: 0, reports: 0 }
+				}
+			},
+			{
+				id: 'q1', public_id: 'RS-00001', text: 'Olifant', min_age: 4, active: true,
+				plays: 12, guessed: 11, not_guessed: 1, swapped: 0, reports: 0, te_moeilijk: 0, leeftijd: 0, niet_leuk: 0,
+				prima: 1, dismissed: 0, last_report: null,
+				by_age: { '4-6': { plays: 12, guessed: 11, not_guessed: 1, swapped: 0, reports: 0 } }
+			}
+		],
 		categories: [
 			{ id: 'c1', game_id: GAME, name: 'Dieren', is_18plus: false, active: true },
 			{ id: 'c2', game_id: GAME, name: 'Eten en drinken', is_18plus: false, active: true },
@@ -146,7 +164,8 @@ async function mockSupabase(page: Page, db: Db) {
 		if (p === '/rest/v1/task_types') return json(db.taskTypes);
 		if (p === '/rest/v1/questions') {
 			if (method === 'PATCH') {
-				const ids = (url.searchParams.get('id') ?? '').replace(/^in\.\(|\)$/g, '').split(',').map((s) => s.replace(/"/g, ''));
+				const ids = (url.searchParams.get('id') ?? '').replace(/^in\.\(|^eq\.|\)$/g, '').split(',').map((s) => s.replace(/"/g, ''));
+				db.stats = db.stats.map((q) => (ids.includes(q.id as string) ? { ...q, ...body } : q));
 				db.questions = db.questions.map((q) => (ids.includes(q.id) ? { ...q, ...body } : q));
 				return route.fulfill({ status: 204 });
 			}
@@ -180,6 +199,29 @@ async function mockSupabase(page: Page, db: Db) {
 				failed: 0,
 				errors: []
 			});
+		}
+		if (p === '/rest/v1/rpc/admin_question_stats') return json(db.stats);
+		if (p === '/rest/v1/rpc/admin_stats')
+			return json({
+				summary: { games: 5, completed: 3, stopped: 1, quit: 1, unfinished: 0, avg_minutes: 14.5, avg_turns: 9, avg_players: 3.2, skip_games: 2, repeats_offered: 1, played_repeats: 1 },
+				visitors: { visitors: 7, new: 4, returning: 3, devices_playing: 3 },
+				questions: { shown: 22, guessed: 13, not_guessed: 6, swapped: 3 },
+				series: [
+					{ unit: 'day', period: '2026-11-14', games: 2, completed: 1, visitors: 3, new_visitors: 3 },
+					{ unit: 'day', period: '2026-11-15', games: 3, completed: 2, visitors: 5, new_visitors: 1 },
+					{ unit: 'week', period: '2026-11-09', games: 5, completed: 3, visitors: 7, new_visitors: 4 },
+					{ unit: 'month', period: '2026-11-01', games: 5, completed: 3, visitors: 7, new_visitors: 4 }
+				],
+				heatmap: [{ dow: 7, hour: 15, games: 3 }, { dow: 6, hour: 10, games: 2 }],
+				ages: [{ group: '7-9', games: 3 }, { group: '18+', games: 2 }],
+				players: [{ players: 3, games: 4 }, { players: 4, games: 1 }],
+				task_types: [{ code: 'uitbeelden', name: 'Uitbeelden', games_on: 5 }, { code: 'tekenen', name: 'Tekenen', games_on: 3 }],
+				categories: [{ id: 'c1', name: 'Dieren', is_18plus: false, games_on: 5, games_allowed: 5 }]
+			});
+		if (p === '/rest/v1/question_feedback' && method === 'PATCH') {
+			const id = (url.searchParams.get('question_id') ?? '').replace(/^eq\./, '');
+			db.stats = db.stats.map((q) => (q.id === id ? { ...q, dismissed: q.reports, reports: 0, te_moeilijk: 0, leeftijd: 0, niet_leuk: 0 } : q));
+			return route.fulfill({ status: 204 });
 		}
 		return json({ message: `niet nagebootst: ${method} ${p}` }, 404);
 	});
@@ -402,4 +444,51 @@ test('spelregels en minuten per vraag aanpassen', async ({ page }) => {
 	await expect(page.getByText('Raadspel opgeslagen.')).toBeVisible();
 	const call = db.calls.find((c) => c.method === 'PATCH' && c.path.startsWith('/rest/v1/games'))!;
 	expect(call.body).toMatchObject({ minutes_per_question: 1.5 });
+});
+
+test('feedback: meest gemelde vraag bovenaan, leeftijd aanpassen, uitzetten en negeren', async ({ page }) => {
+	const db = freshDb();
+	await loginAsAdmin(page, db);
+	await page.getByRole('link', { name: 'Feedback' }).click();
+	await expect(page.getByRole('heading', { name: 'Feedback' })).toBeVisible();
+	const rows = page.locator('tbody > tr');
+	// Alleen gemelde vragen staan standaard aan: Olifant (0 meldingen) staat er niet bij.
+	await expect(rows).toHaveCount(1);
+	await expect(rows.first()).toContainText('Pindarotsje');
+	await expect(rows.first()).toContainText('Vaak te moeilijk bij 7-9 jaar');
+	await expect(rows.first()).toContainText('40%');
+
+	await page.getByLabel('Minimumleeftijd RS-00002').fill('10');
+	await page.getByRole('button', { name: 'Leeftijd opslaan' }).click();
+	await expect(page.getByText('Minimumleeftijd van RS-00002 is nu 10.')).toBeVisible();
+	expect(db.calls.find((c) => c.method === 'PATCH' && c.path.startsWith('/rest/v1/questions'))?.body).toEqual({ min_age: 10 });
+
+	await page.getByRole('button', { name: 'Uitzetten' }).click();
+	await expect(page.getByText('RS-00002 is uitgezet.')).toBeVisible();
+
+	await page.getByRole('button', { name: 'Negeren' }).click();
+	await expect(page.getByText('Meldingen over RS-00002 worden genegeerd.')).toBeVisible();
+	await expect(rows).toHaveCount(0);
+	await page.getByLabel('Alleen gemelde vragen').uncheck();
+	await expect(rows).toHaveCount(2);
+
+	const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download Excel' }).click()]);
+	expect(download.suggestedFilename()).toMatch(/^feedback-raadspel-.*\.xlsx$/);
+});
+
+test('statistieken: kerncijfers, grafieken en Excel', async ({ page }) => {
+	const db = freshDb();
+	await loginAsAdmin(page, db);
+	await page.getByRole('link', { name: 'Statistieken' }).click();
+	await expect(page.getByTestId('stat-bezoekers')).toHaveText('7');
+	await expect(page.getByTestId('stat-spellen')).toHaveText('5');
+	await expect(page.getByText('4 nieuw · 3 terug')).toBeVisible();
+	await expect(page.getByRole('heading', { name: 'Wanneer wordt er gespeeld?' })).toBeVisible();
+	await page.getByRole('button', { name: 'Per week' }).click();
+	await expect(page.getByRole('listitem', { name: /5 spellen, 3 afgemaakt/ })).toHaveCount(1);
+	await expect(page.getByRole('heading', { name: 'Minst vaak geraden' })).toBeVisible();
+	const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download Excel' }).click()]);
+	expect(download.suggestedFilename()).toMatch(/^statistieken-raadspel-.*\.xlsx$/);
+	const call = db.calls.find((c) => c.path === '/rest/v1/rpc/admin_stats');
+	expect(call?.body).toMatchObject({ p_game: GAME });
 });

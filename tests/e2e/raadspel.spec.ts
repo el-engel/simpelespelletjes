@@ -15,6 +15,10 @@ test('hele spel: uitleg, invoer, beurten, score en winnaar', async ({ page }) =>
 	await page.getByLabel('Leeftijd jongste speler?').fill('8');
 	await page.getByLabel('Speler 1').fill('Lisa');
 	await page.getByLabel('Speler 2').fill('Ben');
+	// Soort opdrachten, categorieën en timer staan achter de knop Spelinstellingen
+	await expect(page.getByRole('checkbox', { name: /^18\+/ })).toHaveCount(0);
+	await expect(page.getByRole('button', { name: /Spelinstellingen/ })).toContainText('alle opdrachten');
+	await page.getByRole('button', { name: /Spelinstellingen/ }).click();
 	// 18+ staat uit en is niet aan te klikken onder 18
 	await expect(page.getByRole('checkbox', { name: /^18\+/ })).toBeDisabled();
 	await expect(page.getByRole('checkbox', { name: /^18\+/ })).not.toBeChecked();
@@ -62,6 +66,7 @@ test('ververs halverwege: het spel gaat verder', async ({ page }) => {
 	await page.getByLabel('Leeftijd jongste speler?').fill('30');
 	await page.getByLabel('Speler 1').fill('A');
 	await page.getByLabel('Speler 2').fill('B');
+	await page.getByRole('button', { name: /Spelinstellingen/ }).click();
 	await expect(page.getByRole('checkbox', { name: /^18\+/ })).toBeEnabled();
 	await page.getByRole('button', { name: 'Start spel' }).click();
 	await page.getByRole('button', { name: 'Laat soort opdracht zien' }).click();

@@ -33,7 +33,9 @@ Houd een leeg tekstbestand of notitie open. Daarin plak je onderweg zes waarden.
 2. Open in GitHub het bestand `supabase/migrations/20261114000000_init.sql`: https://github.com/el-engel/simpelespelletjes/blob/main/supabase/migrations/20261114000000_init.sql
 3. Klik rechtsboven op het **kopieer-icoon** ("Copy raw file").
 4. Plak het in de SQL Editor van Supabase en klik op **Run** (rechtsonder). Je ziet "Success. No rows returned".
-5. Doe hetzelfde met `supabase/seed.sql`: https://github.com/el-engel/simpelespelletjes/blob/main/supabase/seed.sql
+5. Doe hetzelfde met `supabase/migrations/20261115000000_feedback_statistieken.sql`: https://github.com/el-engel/simpelespelletjes/blob/main/supabase/migrations/20261115000000_feedback_statistieken.sql
+   Daarmee komen de feedbackknoppen en de statistieken erbij.
+6. Doe hetzelfde met `supabase/seed.sql`: https://github.com/el-engel/simpelespelletjes/blob/main/supabase/seed.sql
    Daarmee komen het raadspel, de categorieën en 40 voorbeeldvragen erin.
 
 ### 1c. Inloggen beveiligen
@@ -131,6 +133,19 @@ Een gratis Supabase-project pauzeert na 7 dagen zonder gebruik. Een kleine autom
 3. Klaar. Elke drie dagen doet GitHub een klein verzoek. Je ziet het onder **Actions** > **Supabase wakker houden**.
 
 ---
+
+## Bijwerken: feedback en statistieken toevoegen (als de app al online staat)
+
+Draai je de app al? Dan doe je dit één keer, direct nadat je de nieuwe versie hebt samengevoegd. (Het spel blijft ondertussen gewoon werken.)
+
+1. Open je project in Supabase: https://supabase.com/dashboard/projects en klik op **simplegames**.
+2. Klik in het linkermenu op **SQL Editor** (het icoon met `>_`) en daarna op **+ New query**.
+3. Open in GitHub het bestand https://github.com/el-engel/simpelespelletjes/blob/main/supabase/migrations/20261115000000_feedback_statistieken.sql en klik rechtsboven op het **kopieer-icoon** ("Copy raw file").
+4. Plak het in de SQL Editor en klik rechtsonder op **Run**. Je ziet "Success. No rows returned".
+   - Zie je een melding over "destructive operations"? Klik dan op **Run this query**. Er wordt niets weggegooid; het bestand maakt alleen nieuwe tabellen aan.
+5. Klaar. In `/beheer` staan nu de tabbladen **Feedback** en **Statistieken**. Ze vullen zich zodra er gespeeld wordt.
+
+Het bestand mag je gerust nog een keer uitvoeren; dat kan geen kwaad.
 
 ## Kosten en grenzen
 

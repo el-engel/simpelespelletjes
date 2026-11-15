@@ -1,4 +1,4 @@
-import type { DrawnQuestion, GameDetails } from '#lib/types.ts';
+import type { DrawnQuestion, GameDetails, LogBatch } from '#lib/types.ts';
 import type { DataSource } from './data';
 
 // Voorbeeldgegevens om lokaal te spelen en te testen zonder Supabase.
@@ -55,6 +55,9 @@ const questions = [
 
 const counters = new Map<string, number>();
 
+/** In demomodus blijven gelogde gegevens alleen in het geheugen (voor tests). */
+export const demoLog: { batches: { gameId: string; batch: LogBatch }[]; visits: string[] } = { batches: [], visits: [] };
+
 function shuffle<T>(a: T[]): T[] {
 	const r = [...a];
 	for (let i = r.length - 1; i > 0; i--) {
@@ -92,5 +95,13 @@ export const demoData: DataSource = {
 		counters.set(k, n);
 		// Demomodus is alleen voor lokaal spelen en tests (veel spellen achter elkaar): ruimere grens.
 		return n <= limit * 20;
+	},
+	async logPlay(gameId, batch) {
+		demoLog.batches.push({ gameId, batch });
+		if (demoLog.batches.length > 200) demoLog.batches.shift();
+	},
+	async recordVisit(deviceId) {
+		demoLog.visits.push(deviceId);
+		if (demoLog.visits.length > 200) demoLog.visits.shift();
 	}
 };

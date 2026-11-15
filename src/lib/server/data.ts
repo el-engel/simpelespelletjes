@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import type { DrawnQuestion, GameDetails, GameSummary } from '#lib/types.ts';
+import type { DrawnQuestion, GameDetails, GameSummary, LogBatch } from '#lib/types.ts';
 import { isDemo, serverConfig } from './config';
 import { demoData } from './demo';
 
@@ -18,6 +18,10 @@ export interface DataSource {
 	drawQuestions(p: DrawParams): Promise<DrawnQuestion[]>;
 	/** true = verzoek toegestaan, false = te veel verzoeken. */
 	hitRateLimit(key: string, limit: number, windowSeconds: number): Promise<boolean>;
+	/** Spelgegevens en feedback opslaan (anoniem). */
+	logPlay(gameId: string, batch: LogBatch): Promise<void>;
+	/** Bezoek tellen (één keer per toestel per dag). */
+	recordVisit(deviceId: string): Promise<void>;
 }
 
 let client: SupabaseClient | null = null;
@@ -101,6 +105,22 @@ const supabaseData: DataSource = {
 			return true;
 		}
 		return data === true;
+	},
+
+	async logPlay(gameId, b) {
+		const { error } = await supabase().rpc('log_play', {
+			p_game: gameId,
+			p_device: b.device,
+			p_sessions: b.sessions,
+			p_events: b.events,
+			p_feedback: b.feedback
+		});
+		if (error) throw error;
+	},
+
+	async recordVisit(deviceId) {
+		const { error } = await supabase().rpc('record_visit', { p_device: deviceId });
+		if (error) throw error;
 	}
 };
 
