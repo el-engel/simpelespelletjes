@@ -90,6 +90,7 @@ export const demoData: DataSource = {
 		const k = `${key}:${w}`;
 		const n = (counters.get(k) ?? 0) + 1;
 		counters.set(k, n);
-		return n <= limit;
+		// Demomodus is alleen voor lokaal spelen en tests (veel spellen achter elkaar): ruimere grens.
+		return n <= limit * 20;
 	}
 };

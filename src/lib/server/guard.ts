@@ -20,7 +20,7 @@ export async function rateLimit(event: RequestEvent, purpose: string, max: numbe
 
 export async function readJson(request: Request): Promise<Record<string, unknown>> {
 	const len = Number(request.headers.get('content-length') ?? 0);
-	if (len > 64_000) error(413, 'Verzoek te groot');
+	if (len > 160_000) error(413, 'Verzoek te groot');
 	try {
 		const body = await request.json();
 		if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error();

@@ -9,6 +9,7 @@
 	import type { DrawnQuestion } from '#lib/types.ts';
 	import { toTop } from '#lib/scroll.ts';
 	import Scoreboard from './Scoreboard.svelte';
+	import { addSeen, buildExclude, loadSeen } from './history.ts';
 	import {
 		MAX_PER_PLAYER,
 		MAX_PLAYERS,
@@ -38,6 +39,8 @@
 	let confirmQuit = $state(false);
 	/** Er stond nog een spel klaar toen je terugkwam: eerst kiezen of je verder speelt. */
 	let resumeAsk = $state(false);
+	/** Te weinig nieuwe vragen: aanbieden om toch te spelen met vragen die al geweest zijn. */
+	let repeatOffer = $state<{ state: GameState; fresh: DrawnQuestion[]; needed: number } | null>(null);
 
 	// ---- invoerscherm
 	let playerCount = $state<number | null>(null);
@@ -98,6 +101,7 @@
 
 	$effect(() => {
 		const snapshot = JSON.stringify(game);
+		addSeen(start.game.slug, game.used);
 		try {
 			sessionStorage.setItem(storageKey, snapshot);
 		} catch {
@@ -149,17 +153,10 @@
 		skips = Array.from({ length: count }, (_, i) => skips[i] ?? false);
 	}
 
-	function doneWithPlayers() {
-		const keep = names.map((n, i) => ({ name: n.trim(), skip: skips[i] ?? false })).filter((p) => p.name);
-		names = keep.map((p) => p.name);
-		skips = keep.map((p) => p.skip);
-		playerCount = names.length;
-		message = names.length < 2 ? 'Vul minstens twee spelers in.' : '';
-	}
-
 	async function fetchQuestions(count: number, state: GameState): Promise<DrawnQuestion[]> {
-		const exclude = [...state.used, ...state.queue.map((q) => q.id)];
-		if (state.current) exclude.push(state.current.question.id);
+		const inGame = [...state.used, ...state.queue.map((q) => q.id)];
+		if (state.current) inGame.push(state.current.question.id);
+		const exclude = buildExclude(inGame, state.allowRepeats ? [] : loadSeen(start.game.slug));
 		const res = await fetch('/api/spel/vragen', {
 			method: 'POST',
 			headers: { 'content-type': 'application/json' },
@@ -169,7 +166,7 @@
 				taskCodes: state.taskCodes,
 				categoryIds: state.categoryIds,
 				count: Math.min(200, count),
-				exclude: exclude.slice(-2000)
+				exclude
 			})
 		});
 		if (res.status === 401) {
@@ -187,7 +184,14 @@
 		if (need <= 0) return;
 		loading = true;
 		try {
-			const extra = await fetchQuestions(need, game);
+			let extra = await fetchQuestions(need, game);
+			// Midden in een spel (bijv. een speler erbij) vullen we stil aan met eerder gespeelde vragen.
+			if (extra.length < need && !game.allowRepeats) {
+				game = { ...game, allowRepeats: true };
+				const more = await fetchQuestions(need, game);
+				const ids = new Set(extra.map((q) => q.id));
+				extra = [...extra, ...more.filter((q) => !ids.has(q.id))].slice(0, need);
+			}
 			const known = new Set([...game.used, ...game.queue.map((q) => q.id)]);
 			game = { ...game, queue: [...game.queue, ...extra.filter((q) => !known.has(q.id))] };
 		} catch (e) {
@@ -199,9 +203,10 @@
 
 	async function startGame() {
 		message = '';
-		const filled = names.map((n) => n.trim());
+		// Lege naamvelden tellen niet mee.
+		const entered = names.map((n, i) => ({ name: n.trim(), skip: skips[i] ?? false })).filter((p) => p.name);
+		const filled = entered.map((p) => p.name);
 		if (filled.length < 2) return (message = 'Vul minstens twee spelers in.');
-		if (filled.some((n) => !n)) return (message = 'Vul bij elke speler een naam of initialen in, of tik op "Ik ben klaar".');
 		if (perPlayer === null || perPlayer < 1 || perPlayer > MAX_PER_PLAYER)
 			return (message = `Kies 1 tot ${MAX_PER_PLAYER} vragen per speler.`);
 		if (age === null || age < 1 || age > 120) return (message = 'Vul de leeftijd van de jongste speler in.');
@@ -211,23 +216,48 @@
 		const s: GameState = {
 			...newState(),
 			stage: 'turn',
-			players: filled.map((n, i) => makePlayer(n, skips[i] ?? false)),
+			players: entered.map((p) => makePlayer(p.name, p.skip)),
 			perPlayer,
 			age,
 			taskCodes: [...taskCodes],
 			categoryIds: [...categoryIds]
 		};
+		repeatOffer = null;
 		loading = true;
 		try {
 			const qs = await fetchQuestions(remainingTurns(s) + 2, s);
+			const needed = remainingTurns(s);
+			if (qs.length < needed) {
+				// Te weinig vragen die nog niet geweest zijn: eerst vragen of herhalen mag.
+				repeatOffer = { state: s, fresh: qs, needed };
+				return;
+			}
+			game = { ...s, queue: qs };
+		} catch (e) {
+			if (e instanceof Error && e.message !== 'verlopen') message = e.message;
+		} finally {
+			loading = false;
+		}
+	}
+
+	/** Toch spelen: aanvullen met vragen die op deze telefoon al eens geweest zijn. */
+	async function playWithRepeats() {
+		if (!repeatOffer) return;
+		const { state, fresh } = repeatOffer;
+		const s: GameState = { ...state, allowRepeats: true };
+		loading = true;
+		message = '';
+		try {
+			const more = await fetchQuestions(remainingTurns(s) + 2, { ...s, queue: fresh });
+			const qs = [...fresh, ...more];
 			if (qs.length === 0) {
 				message = 'Er zijn geen vragen die passen bij deze keuzes. Zet meer categorieën of opdrachtsoorten aan.';
 				return;
 			}
-			const needed = remainingTurns(s);
-			if (qs.length < needed) {
+			if (qs.length < remainingTurns(s)) {
 				message = `Let op: er zijn maar ${qs.length} passende vragen, dus het spel is eerder klaar.`;
 			}
+			repeatOffer = null;
 			game = { ...s, queue: qs };
 		} catch (e) {
 			if (e instanceof Error && e.message !== 'verlopen') message = e.message;
@@ -380,7 +410,6 @@
 						</label>
 					</div>
 				{/each}
-				<button class="btn" onclick={doneWithPlayers}>Ik ben klaar, dit zijn alle spelers</button>
 			</section>
 		{/if}
 
@@ -418,6 +447,23 @@
 		</section>
 
 		{#if message}<p class="error" role="alert">{message}</p>{/if}
+		{#if repeatOffer}
+			<section class="card card-neon stack" aria-live="polite">
+				<h2>Alles al gespeeld?</h2>
+				{#if repeatOffer.fresh.length === 0}
+					<p>Jullie hebben alle vragen die bij deze keuzes passen al eens gehad op deze telefoon.</p>
+				{:else}
+					<p>
+						Er zijn nog maar {repeatOffer.fresh.length} nieuwe vragen voor dit spel, en er zijn er
+						{repeatOffer.needed} nodig. De rest hebben jullie al eens gehad.
+					</p>
+				{/if}
+				<button class="btn btn-primary btn-big" onclick={playWithRepeats} disabled={loading}>
+					Toch spelen, ook met vragen die al geweest zijn
+				</button>
+				<p class="muted small">Of zet hierboven meer categorieën of soorten opdrachten aan.</p>
+			</section>
+		{/if}
 		<button class="btn btn-primary btn-big" onclick={startGame} disabled={loading}>
 			{loading ? 'Even geduld…' : 'Start spel'}
 		</button>
